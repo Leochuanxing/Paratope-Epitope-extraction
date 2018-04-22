@@ -46,48 +46,32 @@ def findContact(CDRcdnt, acdnt, cutoff):
             contactN.append(j)
     return   contactN
 
-# Give the six coordinates contact for a given CDRid
-#    In the form (CDRid, HLchain_id, Achain_id, HLchain_index, Achain_index, contact_number )
+# Give the four coordinates contact for a given CDRid
+#    In the form ('CDRid HLchain_id Achain_id', HLchain_index, Achain_index, contact_number )
 #    CDRid takes the value of l1, l2, l3, h1, h2, h3.
 
-def six_coordinates (CDR_id, HLchain_id, Achain_id, contact):
-    six_coordinates = []
+def four_coordinates (CDR_id, HLchain_id, Achain_id, contact):
+    four_coordinates = []
     for i in contact:
         if i != ():
-            j = (CDR_id, HLchain_id, Achain_id).__add__(i)
-            six_coordinates.append(j)
-    return six_coordinates
+            j = (CDR_id+HLchain_id+ Achain_id,).__add__(i)
+            four_coordinates.append(j)
+    return four_coordinates
 
-
-# Structure of the output
-#class ParEpi:
-#    def __init__(self, PdbId, chainL, chainH, chainA, L1CNT,
-#                 L2CNT, L3CNT, H1CNT, H2CNT, H3CNT):
-#        self.PdbId = PdbId
-#        self.chainL = chainL
-#        self.chainH = chainH
-#        self.chainA = chainA
-#        self.L1CNT = L1CNT
-#        self.L2CNT = L2CNT
-#        self.L3CNT = L3CNT
-#        self.H1CNT = H1CNT
-#        self.H2CNT = H2CNT
-#        self.H3CNT = H3CNT
-#
-#    def __str__(self):
-#        return (('PDBid: {} \n  chainL: {}\n  chainH: {}\n chainA: {} \n L1CNT: {} \n' +
-#                 'L2CNT:{} \n L3CNT:{} \n H1CNT: {} \n H2CNT: {} \n' +
-#                 'H3CNT: {} \n')
-#                .format(self.PdbId, self.chainL, self.chainH, self.chainA, self.L1CNT, self.L2CNT,
-#                        self.L3CNT,self.H1CNT, self.H2CNT, self.H3CNT))
-
-# See http://www.biochem.ucl.ac.uk/~martin/abs/GeneralInfo.html
-# We use the minimum of the starting position and the maximum of the ending position
-# of Kabat, Chothia, AbM and Contact. For H3, we creat a range with length 20
+# Assigns the ranges of CDRs, which are the largest among Kabat, Chothia, Contact and Abm, as
+#    given by http://www.biochem.ucl.ac.uk/~martin/abs/GeneralInfo.html
 CDRLindex = [list(range(23, 36)), list(range(45, 56)), list(range(88, 97))]
 CDRHindex = [list(range(25, 36)), list(range(46, 65)), list(range(90, 110))]
 
+# the input ID is in the form [pdbid, Hchainid, Lchainid, Achainid]
+# the return values are all contacts in four coordinates in four coordinates form
 def contact(ID, cutoff=6):
+    LAcontact1 = []
+    LAcontact2 = []
+    LAcontact3 = []
+    HAcontact1 = []
+    HAcontact2 = []
+    HAcontact3 = []
     with open(ID[0] + '.pdb', 'r') as f:
         pdb = f.readlines()
     if ID[3] != '': 
@@ -106,9 +90,9 @@ def contact(ID, cutoff=6):
             cnt_l2 = findContact(cdnt_l2, cdnt_a, cutoff)
             cnt_l3 = findContact(cdnt_l3, cdnt_a, cutoff)
             
-            LAcontact1 = six_coordinates('l1', ID[2], ID[3], cnt_l1)
-            LAcontact2 = six_coordinates('l2', ID[2], ID[3], cnt_l2)
-            LAcontact3 = six_coordinates('l3', ID[2], ID[3], cnt_l3)  
+            LAcontact1 = four_coordinates('l1', ID[2], ID[3], cnt_l1)
+            LAcontact2 = four_coordinates('l2', ID[2], ID[3], cnt_l2)
+            LAcontact3 = four_coordinates('l3', ID[2], ID[3], cnt_l3)  
                
         if ID[1] != '':    
 #            chainH = findChain(pdb, ID[1])
@@ -121,90 +105,62 @@ def contact(ID, cutoff=6):
             cnt_h2 = findContact(cdnt_h2, cdnt_a, cutoff)
             cnt_h3 = findContact(cdnt_h3, cdnt_a, cutoff)
             
-            HAcontact1 = six_coordinates('h1', ID[1], ID[3], cnt_h1)
-            HAcontact2 = six_coordinates('h2', ID[1], ID[3], cnt_h2)
-            HAcontact3 = six_coordinates('h3', ID[1], ID[3], cnt_h3)             
+            HAcontact1 = four_coordinates('h1', ID[1], ID[3], cnt_h1)
+            HAcontact2 = four_coordinates('h2', ID[1], ID[3], cnt_h2)
+            HAcontact3 = four_coordinates('h3', ID[1], ID[3], cnt_h3)             
   
-        return LAcontact1, LAcontact2, LAcontact3, HAcontact1, HAcontact2, HAcontact3 
-  
+    return LAcontact1, LAcontact2, LAcontact3, HAcontact1, HAcontact2, HAcontact3 
+
     
-summary = open('summary.TSV', 'r')
-file = summary.readlines()        
-summary.close
-        
-import IDhere 
-l = IDhere.main(file)
-print(l)
+# open the summary file of the ids and find the corresponding ids in current directory
+# the returned values are ids in this file in the form of list as 
+# [['5kel', 'Q', 'U', 'I'], ['5kel', 'J', 'N', 'E'],...]
 
-kel = l[(len(l)-6):len(l)]
-print(kel)
-
-dict_5kel = {}
-for s in kel:
-    if dict_5kel.__contains__(s[0]):
-            for i in range(0, 3):
-                dict_5kel[s[0]][i] = dict_5kel[s[0]][i] + s[i+1] 
-    else:
-        dict_5kel[s[0]] = [s[1], s[2], s[3]]
-print (dict_5kel)
-
-
-'''Run a test to see if the classification is correct'''
-ckel = dict_5kel['5kel']
-print(ckel)
-
-LAID = []
-for i in ckel[1]:
-    for j in ckel[2]:
-        LAID.append(['5kel','', i, j])
-print(LAID)
-len(LAID)  
-
-f = open('5kel.pdb', 'r') 
-pdb = f.readlines()
-f.close
- 
-ID = ['5kel', 'M', 'O', 'F'] 
-for i in kel:
-    print(contact(i, 6))
+def get_ids_in_summary():    
+    summary = open('summary.TSV', 'r')
+    file = summary.readlines()        
+    summary.close
     
-
-
-
-
-def LACNT (ID, cutoff = 6):
-    cdnt_l1 = getCoordinates(pdb, ID[2], CDRLindex[0])
-    cdnt_l2 = getCoordinates(pdb, ID[2], CDRLindex[1])
-    cdnt_l3 = getCoordinates(pdb, ID[2], CDRLindex[2]) 
+    import IDhere 
+    idhere = IDhere.main(file)
     
-    chainA = findChain(pdb, ID[3])
-    cdnt_a = getCoordinates(pdb, ID[3], list(range(len(chainA))))
-
-    cnt_l1 = findContact(cdnt_l1, cdnt_a, cutoff)
-    cnt_l2 = findContact(cdnt_l2, cdnt_a, cutoff)
-    cnt_l3 = findContact(cdnt_l3, cdnt_a, cutoff)
-   
-    return [ID[2], ID[3]],[cnt_l1, cnt_l2, cnt_l3]     
-
-print(LACNT(ID,  6))
-
-for i in LAID:
-    print(LACNT(i, 6))
- 
-print(kel)
-problem = []
-LACNT1 = []
-for ID in kel:
-    if ID[3] != '':
-        try:
-            Contact = main(ID, 6)                
-            LACNT1.append([[ID[2],ID[3]], [Contact.L1CNT, Contact.L2CNT, Contact.L3CNT]])
-        except:
-            problem.append('Something is wrong with '+ ID[0]+'.pdb')
-print(problem)
-print (LACNT1)  
+    return idhere
 
 
-# the input is the output of findContact
+# the input is the id in this file, the out put is a dictionary with key pdbid
+# and values a list of ids in the form as [['5kel', 'Q', 'U', 'I'], ['5kel', 'J', 'N', 'E'],...]
+def clustered_id_by_pdbid (idhere):       
+    dictid = {}
+    for i in idhere:
+        if dictid.__contains__(i[0]):
+            dictid[i[0]].append(i)
+        else:
+            dictid[i[0]] = [i]
+    return dictid
+
+# the input is the ids here in the formats of dictionary and cutoff value
+# the returned value are all the contacts in the format of dictionary with keys 
+#    pdbids and values lists of four coordinates contact
+def contact_dict(dictid, cutoff):
+    
+    pdbids_here_key = dictid.keys()
+    
+    contact_dict = {}
+    res = []
+    for k in pdbids_here_key:
+        for i in dictid[k]: 
+            for j in contact(i, cutoff):
+                res.extend(j)
+        contact_dict[k] = res
+    return contact_dict
+
+
+idhere = get_ids_in_summary()
+dictid = clustered_id_by_pdbid(idhere)
+print(dictid) 
+contactdict = contact_dict(dictid, 6)
+print(contactdict)
+
+
 
 
