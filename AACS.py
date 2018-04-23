@@ -19,13 +19,37 @@ def findChain(pdb, chain_id):
             break
     return chain
 
+#def getCoordinates(pdb, chainId, Interval):
+#    CDNT = []
+#    m = 0
+#    for line in pdb:
+#        if line[:4] == 'ATOM' and line[21] == chainId:
+#            n = int(line[22:26])
+#            if m != n and m == 0:
+#                m = n                
+#            if (n-m) in Interval:
+#                CDNT.append([float(line[30:38]),float(line[38:46]), float(line[46:54]), n-m])
+#    return CDNT
+#def getCoordinates(pdb, chain_id, residue_index):
+#    CDNT = []
+#    for line in pdb:
+#        if line[:4] == 'ATOM' and line[21] == chain_id:
+#            resSeq = int(line[22:26])
+#            if resSeq - 1 in residue_index:
+#                CDNT.append((float(line[30:38]), float(line[38:46]), float(line[46:54]), resSeq))
+#        elif len(CDNT) > 0:
+#            break
+#    return CDNT
 def getCoordinates(pdb, chain_id, residue_index):
     CDNT = []
+    start_index = 0
     for line in pdb:
         if line[:4] == 'ATOM' and line[21] == chain_id:
             resSeq = int(line[22:26])
-            if resSeq - 1 in residue_index:
-                CDNT.append((float(line[30:38]), float(line[38:46]), float(line[46:54]), resSeq))
+            if start_index == 0:
+                start_index = resSeq
+            if resSeq - start_index in residue_index:
+                CDNT.append((float(line[30:38]), float(line[38:46]), float(line[46:54]), resSeq - start_index))
         elif len(CDNT) > 0:
             break
     return CDNT
@@ -64,16 +88,15 @@ CDRLindex = [list(range(23, 36)), list(range(45, 56)), list(range(88, 97))]
 CDRHindex = [list(range(25, 36)), list(range(46, 65)), list(range(90, 110))]
 
 # the input ID is in the form [pdbid, Hchainid, Lchainid, Achainid]
+# the input pdb is the pdbid
 # the return values are all contacts in four coordinates in four coordinates form
-def contact(ID, cutoff=6):
+def contact(pdb, ID, cutoff=6):
     LAcontact1 = []
     LAcontact2 = []
     LAcontact3 = []
     HAcontact1 = []
     HAcontact2 = []
     HAcontact3 = []
-    with open(ID[0] + '.pdb', 'r') as f:
-        pdb = f.readlines()
     if ID[3] != '': 
         chainA = findChain(pdb, ID[3])
         
@@ -141,15 +164,19 @@ def clustered_id_by_pdbid (idhere):
 # the input is the ids here in the formats of dictionary and cutoff value
 # the returned value are all the contacts in the format of dictionary with keys 
 #    pdbids and values lists of four coordinates contact
-def contact_dict(dictid, cutoff):
-    
-    pdbids_here_key = dictid.keys()
-    
-    contact_dict = {}
-    res = []
-    for k in pdbids_here_key:
+def contact_dict(dictid, cutoff):      
+    contact_dict = {}     
+    pdbids_here_key = dictid.keys() 
+    for k in pdbids_here_key:        
+        
+        f = open(k + '.pdb', 'r') 
+        pdb = f.readlines()
+        f.close
+        
+        res = []           
         for i in dictid[k]: 
-            for j in contact(i, cutoff):
+            temp = contact(pdb, i, cutoff)
+            for j in temp :
                 res.extend(j)
         contact_dict[k] = res
     return contact_dict
@@ -160,6 +187,95 @@ dictid = clustered_id_by_pdbid(idhere)
 print(dictid) 
 contactdict = contact_dict(dictid, 6)
 print(contactdict)
+print(dictid)
+
+
+import csv
+with open('contactdict1.csv', 'w') as csv_file:
+    writer = csv.writer(csv_file)
+    for key, value in contactdict.items():
+       writer.writerow([key, value])
+
+
+print(contactdict['5kel'])
+len(contactdict['5kel'])
+
+print(contactdict['1dee'])
+len(contactdict['1dee'])
+
+#
+#
+#idhere = get_ids_in_summary()
+#print(idhere)
+#dictid = clustered_id_by_pdbid(idhere)
+#dee = dictid['1dee']
+#dee_dict = {}
+#dee_dict['1dee'] = dee
+#dee_contact = contact_dict(dee_dict, 6)
+#print(dee_contact)
+#print(dee_dict)
+#print(dee)
+#
+#f = open('1dee.pdb', 'r')
+#pdb = f.readlines()
+#ID = dee[2]
+#print(ID)
+#cutoff = 6
+#chainA = findChain(pdb, ID[3])
+#chainH = findChain(pdb, ID[1])
+#chainL = findChain(pdb, ID[2])
+#
+#cdnt_a = getCoordinates(pdb, ID[3], list(range(len(chainA))))
+#        
+#cdnt_l1 = getCoordinates(pdb, ID[2], CDRLindex[0])
+#cdnt_l2 = getCoordinates(pdb, ID[2], CDRLindex[1])
+#cdnt_l3 = getCoordinates(pdb, ID[2], CDRLindex[2])
+#
+#cnt_l1 = findContact(cdnt_l1, cdnt_a, cutoff)
+#cnt_l2 = findContact(cdnt_l2, cdnt_a, cutoff)
+#cnt_l3 = findContact(cdnt_l3, cdnt_a, cutoff)
+#
+#LAcontact1 = four_coordinates('l1', ID[2], ID[3], cnt_l1)
+#LAcontact2 = four_coordinates('l2', ID[2], ID[3], cnt_l2)
+#LAcontact3 = four_coordinates('l3', ID[2], ID[3], cnt_l3)
+#
+#print(chainA)
+#print(chainH)
+#print(chainL)
+#
+#print(cdnt_a)
+#print(cdnt_l1)
+#print(cdnt_l2)
+#print(cdnt_l3)
+#
+#print(cnt_l1)
+#
+#print(LAcontact1)
+#print(LAcontact2)
+#print(LAcontact3)
+#import csv
+with open('contactdict1.csv', 'w') as csv_file:
+    keys = contactdict.keys()
+    for i in contactdict.keys():
+        j = [i]
+        k = []
+        for l in contactdict[i]:
+            k.extend(list(l))
+        j.extend(k)
+        wr = csv.writer(csv_file, dialect='excel')
+        wr.writerow(j)
+#
+with open('contactdict1.csv', 'r') as csv_file:        
+    reader = csv.reader(csv_file)
+    contactdict1 = {}
+    for line in reader:
+        if line != []:
+            contactdict1[line[0]] = line[1]
+
+
+
+
+
 
 
 
