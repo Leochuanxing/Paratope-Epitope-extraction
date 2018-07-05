@@ -326,14 +326,96 @@ def Merge(clusters, similarity_matrix, threshold = 50):
 # check if the function works                 
 starters[:10]    
 import copy; clusters = copy.deepcopy(starters)
-
 merged = Merge(clusters, similarity_matrix, threshold = 49)
 len(merged)
+len(clusters)
 clusters[:11]
+merged[:11]
+for i in clusters:
+    n = True
+    if i not in merged:
+        n = False
+        break
+if n:
+    print('Same')
+else:
+    print('Different')
+        
 cluster_dist = Cluster_dist(clusters, similarity_matrix)
 highest = max([i[1] for i in cluster_dist])
 highest
+similarity_matrix[1, 2]
+H_Seq[2]
+#################################################################
+# find the corresponding pdb id and the chain id for the clusters
+'''
+inputs: clusters, a list, for example [[0],[1, 2]]
+        Seq_sorted, a list, used to calculate the similarity matrix, the order 
+        should be kept a constant
+return: id_clusters, a list, of clustered id, for example[['1adqH'], ['1bvkB',''1bvkE' ]]
+'''
+def Id_clusters(clusters, Seq_sorted):
+    # Creat an empty container.
+    id_clusters = []
+        # Load data
+        
+    for i in range(len(clusters)):
+        #Creat a temporary container
+        temp = []
+        for j in clusters[i]:
+            temp.append(Seq_sorted[j][0]+Seq_sorted[j][1])
+        id_clusters.append(temp)
+    return id_clusters
 
+# Check the function
+id_clusters = Id_clusters(clusters, H_Seq)
+id_clusters[:3]
+len(id_clusters)
+##################################################################
+# find the one with the largest contact within each cluster
+'''
+inputs: id_clusters, a list, for example [['1adqH'], ['1bvkB', '1bvkE']]
+        contact, a dictionary, in the form of {'1adq':[four-coordinates. four-coordinates]}
+        which is the output of the AAC module.
+return: ar_contact, a dictionary, in the form of {'1adqH':[four-coordinates. four-coordinates]}
+        for each cluster chose the one with the largest contact number
+'''
+def AR_contact(id_clusters, contact):# AR means, alignment restraint contact
+    # Creat an empty dictionary
+    ar_contact ={}
+    for cluster in id_clusters:
+        # Creat a temporary dictionary to record the total contact number
+        temp_dict = {}
+        for ids in cluster:
+            temp_dict[ids] = 0
+            if ids[:4] in contact:
+                for fcdn in contact[ids[:4]]:
+                    if fcdn[0][2] == ids[4]:
+                        temp_dict[ids] += fcdn[3]
+        # Chose the one with the largest contact number from temp_dict
+        # creat a temporary key hoder and a contact number holder
+        temp_key =''
+        n = 0
+        for key in temp_dict:
+            if temp_dict[key] > n:
+                temp_key = key
+                n = temp_dict[key]
+        # Load data to ar_contact
+        if temp_key != '':
+            ar_contact[temp_key] = []
+            for fcdn in contact[temp_key[:4]]:
+                if fcdn[0][2] == temp_key[4]:
+                    ar_contact[temp_key].append(fcdn)
+        # clear the temporary containers
+    del temp_key, n, temp_dict
+        
+    return ar_contact
 
-
-
+# Check if it works
+with open('contact_homo_4A', 'r') as f:
+    contact = json.load(f)
+ar_contact = AR_contact(id_clusters, contact)
+len(ar_contact)
+len(clusters)
+keys = list(ar_contact.keys())
+keys[:10]
