@@ -1,12 +1,49 @@
 # Do some preparations and load the data
+import copy
 import os
 os.chdir("C:\\Users\\leo\\Documents\\Research\\Database\\Pipeline\\Analysis2-1-1-1")
 os.listdir()
 import json
-with open('Homo_2_1_1_1', 'r') as f:
-    Homo_2_1_1_1 = json.load(f)
-with open('Mouse_2_1_1_1', 'r') as f:
-    Mouse_2_1_1_1 = json.load(f)
+with open('function_checking_data', 'r') as f:
+    function_checking_data = json.load(f)
+with open('training', 'r') as f:
+    training = json.load(f)
+with open('testing', 'r') as f:
+    testing = json.load(f)
+testing[:10]
+training[:10]
+#######################################################
+## Divide the data up into training data and testing data
+#                
+#len(Homo_2_1_1_1) 
+#len(Mouse_2_1_1_1)
+#import copy; data = copy.deepcopy(Homo_2_1_1_1)
+#data.extend(Mouse_2_1_1_1)
+#len(data)
+##\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+## Hold about 10% out for cross validation
+#import random
+#hold_out_data = random.sample(data, 150)
+#len(hold_out_data)
+## delete the hold_out_data from the data
+#for i in hold_out_data:
+#    data.remove(i)
+#len(data)
+##\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+## Here the length of the complementary aas are different, in order to make the 
+## alignment make sense more, we add the same amimo acid to the single amino acid
+## to make the length 2
+#for i in range(len(testing)):
+#    if len(testing[i][0]) == 1:
+#        testing[i][0].extend(testing[i][0])
+
+# save all the above data
+#with open('training', 'w') as f:
+#    json.dump(data, f)
+#with open('testing', 'w') as f:
+#    json.dump(testing, f)
+#with open('function_checking_data', 'w') as f:
+#    json.dump(testing_data, f)
 ########################################################
 '''
 In order to make this analysis more easily to be generalized to other frame length and 
@@ -176,7 +213,7 @@ def Merge(clusters, similarity_matrix,  cluster_number = None, highest_score = N
 
 
 '''
-inputs: sequence_list, a list [[ALA, ARG], [ALA, GLU], ], or in single letter form
+inputs: sequence_list, a list [['ALA', 'ARG'], ['ALA', 'GLU'], ], or in single letter form
         cluster_number, the nearest upper limit of clusters 
         highest_score, the nearst uper limit of similarity score
         #Only one of highest_score or cluster_number can be used to control the merging process
@@ -223,6 +260,7 @@ def MainMerge(sequence_list, cluster_number = None, highest_score = None):
 #######################################################################
 # Now, a simple implementation
 # Merge the data
+# Write this block under the class of complementary cluster
 len(Homo_2_1_1_1) 
 len(Mouse_2_1_1_1)
 import copy; data = copy.deepcopy(Homo_2_1_1_1)
@@ -286,10 +324,10 @@ def Simulation_cluster(aa_length, num_clusters = None, highest = None):
     
     return cluster, score
 # Check the function
-cluster, score = Simulation_cluster(aa_length = 2, num_clusters = None, highest = 6.0)
-len(cluster)    
-score
-cluster[:10]
+#cluster, score = Simulation_cluster(aa_length = 2, num_clusters = None, highest = 6.0)
+#len(cluster)    
+#score
+#cluster[:10]
 # check if the function works this time
 #n = 0
 #for i in cluster[1]:
@@ -327,22 +365,19 @@ class Complementary_cluster(object):
         parameter of clustering control parameters, cluster_number and highest_score.
     
     '''
-    def __init__(self, data, ref_chain = 'Ag', top_cluster = 0.25, feed_ref = None, 
-                 top_prediction = 5, feed_complement = None, data_single_letter = None,
-                 clustered_ref = None, ref_cluster_score =None, key_dict = None, 
-                 Grouped_dict = None, group_no_clu = None, frequency = None, cluster_para = None,
-                 clustered_complementary = None, complementary_cluster_score = None, 
-                 ):
+    def __init__(self, data, testing_data, ref_chain = 'Ag', feed_complement = None, data_single_letter = None,
+                 clustered_ref = None, ref_cluster_score =None, key_dict = None, Grouped_dict = None, 
+                  frequency = None, cluster_para = None,clustered_complementary = None, 
+                 complementary_cluster_score = None, processed_testing_data = None):
         self.data = data
+        self.testing_data = testing_data
         if ref_chain == 'Ag':
             self.ref_ind = 1
         else:
             self.ref_ind = 0
-        self.top_cluster = top_cluster
-        self.feed_ref = feed_ref
-        self.top_prediction = top_prediction
         self.feed_complement = feed_complement
         self.cluster_para = cluster_para  #
+
     # before we do anything, lets convert the notation of the amino acids into single letter form
     # the return is exactly the same as the data, except that it is in sigle-letter notation
     def Convert_data(self):
@@ -350,13 +385,14 @@ class Complementary_cluster(object):
         for core in self.data:
             data_single_letter.append([T_S_converter(core[0]), T_S_converter(core[1]), core[2], core[3]])
         self.data_single_letter = data_single_letter
+
     
         # cluster the reference frame
     '''
     Inputs: the constraints, highest_scores = None, num_cluster = None
     Return: the clustered keys in the form of [[A, T, G],...]        
     '''
-    def Cluster_ref(self, highest_score = None, cluster_number = None):
+    def Cluster_ref(self, cluster_number = None,  highest_score = None):
         ref_list = [ref[self.ref_ind] for ref in self.data]
         # divide up the combined 
         clustered_ref, ref_cluster_score = MainMerge(ref_list, cluster_number, highest_score)
@@ -396,15 +432,15 @@ class Complementary_cluster(object):
                         break
         self.Grouped_dict = Grouped_dict
     # Group directly without clustering the ref, this is particularly for ref with 
-    # ref length 1
-    def Groupup_without_ref_cluster(self):
-        group_no_clu = {}
-        for core in self.data_single_letter:
-            if core[self.ref_ind][0] not in group_no_clu:
-                group_no_clu[core[self.ref_ind][0]] = core[1-self.ref_ind]
-            else:
-                group_no_clu[core[self.ref_ind][0]].append(core[1-self.ref_ind])
-        self.group_no_clu = group_no_clu
+    # ref length 1, This function need to be deleted
+#    def Groupup_without_ref_cluster(self):
+#        group_no_clu = {}
+#        for core in self.data_single_letter:
+#            if core[self.ref_ind][0] not in group_no_clu:
+#                group_no_clu[core[self.ref_ind][0]] = core[1-self.ref_ind]
+#            else:
+#                group_no_clu[core[self.ref_ind][0]].append(core[1-self.ref_ind])
+#        self.group_no_clu = group_no_clu
     #Calculate the frequency 
     def Frequency(self, dictionary):
         frequency = []
@@ -412,13 +448,129 @@ class Complementary_cluster(object):
             frequency.append([i, len(dictionary[i])])
         self.frequency = frequency
     # Cluster the complementary aas
-    def Cluster_complementary(self, dictionary):
+    def Cluster_complementary(self):
         clustered_complementary = {}
-        for i in dictionary:
-            clustered_complementary[i], complementary_cluster_score = MainMerge(dictionary[i],self.cluster_para[i][0], 
+        complementary_cluster_score = {}
+        for i in self.Grouped_dict:
+            clustered_complementary[i], complementary_cluster_score[i] = MainMerge(self.Grouped_dict[i],self.cluster_para[i][0], 
                                                 self.cluster_para[i][1] )
         self.clustered_complementary = clustered_complementary
         self.complementary_cluster_score = complementary_cluster_score
+    #Find the simulation cluster number and the merging scores
+    # The simulation is randomly drawn from the combination of coresponding aa_length
+    # To further improving the results more persuasive, the data should be drwan from
+    # the protein where those cores come from 
+    '''leave this out righ now''' 
+    # Define a function to find the percentage the num_cluster takes up of 
+    # all the core contacts
+    def Top_cluster_percentage(self,keys, num_cluster):
+        frequency = self.frequency.sort(key = lambda x:x[1], reverse = True)
+        t = 0
+        for i in frequency:
+            t += i[0]
+        s = 0
+        for i in range(num_cluster):
+            s += frequency[i]
+        percentage = round(s/t, 3)
+        return print(percentage)
+                    
+    # Processing the testing data, majorly to transform the data into single-letter form
+    # and conbine the reference into a string
+    def Processing_testing_data(self):
+        processed_testing_data = []
+        for core in self.testing_data:
+            processed_testing_data.append([T_S_converter(core[0]), T_S_converter(core[1]), core[2], core[3]])
+        self.processed_testing_data = processed_testing_data
+    # define a function to make predictions about the paratope on basis of the given 
+    # core of the epitope, we use the tope 'top_prediction'  number of predictions of 
+    # the cluster to make prediction
+
+    # define a function to to make prediction        
+    def Prediction(self): 
+        # load data from self object
+        testing_data = self.testing_data
+        key_dict = self.key_dict
+        trained = self.clustered_complementary
+        # sort the trained according to the size of the clusters
+        for i in trained:
+            trained[i].sort(key = lambda x:len(x), reverse = True)
+        # the results of the prediction will be stored in 
+        all_predictions = []
+        #Extracting information to match up with the keys, and store this information in temp
+        for testing_core in testing_data:
+            temp = ''
+            for i in testing_core[self.ref_ind]:
+                temp += i
+            #match up the keys by calculating the distances between the clustered ref and testing
+            # reference aas, here we use the average similarity, because the keys store in key_dict has information
+            # about frequencies and this frequency is consistent with the number of complementary seqs
+            # in the dictionary.
+            key_match = ''
+            key_match_score = -1000
+            for key in key_dict:
+                # calculate the average similarity between key_dict[key] and temp
+                t = 0
+                for seq in key_dict[key]:
+                    t += aligner.score(Seq(temp, IUPAC.protein), Seq(seq, IUPAC.protein))
+                mean = t/len(key_dict[key])
+                # update the key_match_score and the key_match
+                if mean > key_match_score:
+                    key_match_score = mean
+                    key_match = key # this value should be returned as a prediction
+            # now we have found the matched key for testing_core and store it in key_match
+            # It is time to make prediction according to the clusters in trained[key_match]
+            # We do it by calculating the average distance between the complementary seq and 
+            # the seq in the trained cluster, to see whether the cluster with the 
+            # largest similarity score falls in the top "num_prediction" clusters, if 
+            # it is true, our prediction is correct. Otherwise, it is not.
+            # Let us calculate the average distance
+            prediction = -1
+            similarity = -1000
+            # prepare the testing seq will be used in calculating the average similarity
+            temp = ''
+            for i in testing_core[1-self.ref_ind]:
+                temp += i
+            for cluster_id  in range(len(trained[key_match])):#[['AT', 'ST'],['VV']...]
+                #Calculate the average similarity between clusters[cluster_id] and temp
+                t = 0
+                for trained_seq in trained[key_match][cluster_id]:
+                    t += aligner.score(Seq(temp, IUPAC.protein), Seq(trained_seq, IUPAC.protein))
+                mean = t/len(trained[key_match][cluster_id])
+                # update prediction and similarity
+                if mean > similarity:
+                    similarity = mean
+                    prediction = cluster_id + 1
+            # check if the prediction is correct
+            # our prediction together together with the key_match will be stored
+            # with the testing data
+            all_predictions.append([testing_core[0], testing_core[1], key_match, prediction])
+        self.all_predictions = all_predictions # End of this function
+        
+        # define a function to claculate the successful rate of prediction
+        def Correct_rate(self, num_prediction):
+            # any prediction value in function Prediction larger than num_prediction is wrong
+            n = 0
+            for prediction in self.all_predictions:
+                if prediction[3] <= num_prediction:
+                    n +=1
+            correct_rate = n/len(self.all_predictions)
+            self.correct_rate = correct_rate #End of this function
+        
+
+                    
+
+
+#                        
+                        
+                    
+                    
+        
+
+                    
+                    
+
+        
+    
             
             
         
@@ -427,23 +579,66 @@ class Complementary_cluster(object):
 
                         
 
-analysis = Complementary_cluster(data, ref_chain='Ag')
+analysis = Complementary_cluster(training, testing_data = testing, ref_chain='Ag')
 analysis.Convert_data()
 analysis.data_single_letter
-analysis.ref_ind 
-#analysis.Cluster_ref(highest_score=None, cluster_number=13)
-analysis.Groupup_without_ref_cluster()   
-len(analysis.group_no_clu)
-#analysis.clustered_ref[:3]
+analysis.Cluster_ref(highest_score=None, cluster_number=20)
+analysis.Groupup_to_ref_cluster()
+analysis.key_dict.keys()
+len(analysis.clustered_ref)
+analysis.Grouped_dict['18']
+#for i in analysis.key_dict:
+#    key = analysis.key_dict[i][0]
+#    for j in analysis.key_dict[i]:
+#        if key != j:
+#            print('different in key dict key   '+i )
+#n = 0
+#for i in analysis.key_dict:
+#    n += len(analysis.key_dict[i])
+#n
 #analysis.Groupup_to_ref_cluster()
 #analysis.Grouped_dict.keys()
 #analysis.key_dict
-analysis.Frequency(analysis.group_no_clu)
+################################################################
+##############################################################
+# save the key_dict and the grouped dict, since it is 
+# computational costly.
+#with open('Grouped_dict', 'w') as f:
+#    json.dump(analysis.Grouped_dict, f)
+#with open('key_dict', 'w') as f:
+#    json.dump(analysis.Grouped_dict, f)
+###################################################################
+#####################################################################
+analysis.Frequency(analysis.Grouped_dict)
 analysis.frequency.sort(key = lambda x:x[1], reverse = True)
 analysis.frequency
-cluster, score = MainMerge(analysis.group_no_clu['Q'], 12, None)
+cluster_parameter_dict = {}
+for i in analysis.frequency:
+    cluster_parameter_dict[i[0]] = [20, None]
+len(cluster_parameter_dict ) 
+analysis.cluster_para = cluster_parameter_dict 
+analysis.Cluster_complementary(analysis.Grouped_dict) 
+analysis.complementary_cluster_score.sort(key = lambda x:x[1], reverse =True)
+analysis.clustered_complementary.keys()
+analysis.clustered_complementary['5']
+len(analysis.clustered_complementary['5'])
+for i in analysis.clustered_complementary['5']:
+    print(len(i))
+analysis.clustered_complementary['5'].sort(key = lambda x:len(x), reverse = True)    
+
 length = []
 for i in cluster:
     length.append(len(i))
 length.sort(reverse = True)
 length
+len(analysis.key_dict['5'])
+analysis.Grouped_dict['14']
+analysis.Processin_testing_data()
+analysis.processed_testing_data
+# load the cluster parameter to analysis
+  
+      
+        
+        
+        
+102//10
