@@ -1,63 +1,25 @@
 import os
 os.getcwd()
-os.chdir("C:\\Users\\leo\\Documents\\Research\\Database\\Pipeline")
-os.getcwd()
+os.chdir("/home/leo/Documents/Database/Pipeline/Homo")
 os.listdir()
 ###############################################
 import json
-with open('here_conbined_chain_id', 'r') as f:
-    here_conbined_chain_id = json.load(f)
-with open('here_id_dict', 'r') as f:
-    here_id_dict = json.load(f)
+with open('good_combined_ids', 'r') as f:
+    good_combined_ids = json.load(f)
+with open('good_matched_ids', 'r') as f:
+    good_matched_ids = json.load(f)
     
-here_conbined_chain_id['1dee']
+len(good_combined_ids)
+len(good_matched_ids)
 ################################################
-#Eliminate the wierd pdb, and set aside those wierd pdb ids
-# by weird, it means a chain id shows up more than once
-'''
-inputs: conbined_chain_id, a dictionary with keys pdb id, and values in the form
-        of ['BDF', 'ACE', 'GH']
-return: witches, a list of weird pdb ids
-        GoodPeople, a dictionary with keys of good pdb ids, and values in the form
-        of ['BDF', 'ACE', 'GH']
-'''
-
-def witch_hunt(conbined_chain_id):
-    # creat a container to contain the witches and GoodPeople
-    witches = []
-    GoodPeople = conbined_chain_id
-    for i in conbined_chain_id:
-        antibody_ids = conbined_chain_id[i][0] + conbined_chain_id[i][1] 
-        antigen_ids = conbined_chain_id[i][2]
-        witch = False
-        for i in antibody_ids:
-            if i in antigen_ids:
-                witch = True
-                break
-        if witch:
-            witches.append(i)
-            del GoodPeople[i]
-    return witches, GoodPeople
-# take a look at the results           
-witches, GoodPeople = witch_hunt(here_conbined_chain_id)
-witches # Here there is no witches, but in the large scale calculation, we have to use Goodpeople
-GoodPeople.keys()
-GoodPeople['1dee'] 
-here_conbined_chain_id.keys()  
-# creat good ids
-good_combined_ids = {}
-good_matched_ids = {}
-for i in GoodPeople:
-    good_combined_ids[i] = here_conbined_chain_id[i]
-    good_matched_ids[i] = here_id_dict[i]
-good_matched_ids
-#################################################
 # Extract the chain sequences 
 '''
-Imputs: file, a pdb file
-       : combined_chain_id, a list of the form ['BDF', 'ACE', 'GH']
+Chain_seq is to extract sequences for all the chains in the complex
+Imputs 
+        file, a pdb file
+        combined_chain_id, a list of the form ['BDF', 'ACE', 'GH']
          in the order of heavy chains, light chains, and antigen chains
-Returns: seq, a dictionary of sequences, with keys as the chain id
+Returns: seq, a dictionary of sequences, with the chain id as keys
 '''
 def Chain_seq(file, combined_chain_id):
     # Combine all the ids together
@@ -72,30 +34,36 @@ def Chain_seq(file, combined_chain_id):
     # load the sequences
     for line in file:
         if line[:6] == 'ATOM  ' and line[21] in ids:
+            """Make sure only record the aa when the position number changes"""
             if tracker[line[21]] != line[22:27]:
                 seq[line[21]].append(line[17:20])
                 tracker[line[21]] = line[22:27]
     return seq
 
-# take a look
+'''take a look'''
 sequence = {}
 for i in good_combined_ids:
     with open(i + '.pdb', 'r') as file:
-        sequence[i] = Chain_seq(file, good_combined_ids[i])       
+        sequence[i] = Chain_seq(file, good_combined_ids[i]) 
+len(sequence)
+sequence.keys()
+sequence['1adq'].keys()
+len(sequence['1adq']['A'])
 ###############################################################
-# extract the coordinates used to calculate the interactions
+
 '''
+Coordinates is to extract the coordinates used to calculate the interactions.
 inputs: file, a pdb file
         id_dict, combined_chain_id, a list of the form ['BDF', 'ACE', 'GH']
         in the order of heavy chains, light chains, and antigen chains
 return: cdn, a dictionary in the form of with keys ['h1H', 'h2H', 'h3H',
          'l1L', 'l1L', 'l1L', ..Antigen chain ids..]
         and the coordinates are in the form of [15.1, 2.2, 3.2, pos, aa]
-        pos is an integer, indicates the position in the corresponding chain
+        pos is an integer, indicates the position in the corresponding chain.
         aa, is the name of the amino acid.
 '''
 def Coordinates(file, combined_chain_id):
-    # creat and empty dictionary to contain the results
+    # creat an empty dictionary to contain the results
     cdn = {}
     for i in combined_chain_id[0]:
         cdn['h1'+i], cdn['h2'+i], cdn['h3'+i] = [], [], []
@@ -126,7 +94,7 @@ def Coordinates(file, combined_chain_id):
     l_range = [[23, 35], [45, 55], [88, 96]]
     h_range = [[25, 35], [46, 64], [90, 109]]
     
-    # extracting the coordinates
+    # extract the coordinates
     for line in file:
         if line[:6] == 'ATOM  ' and line[21] in ids:
             # update the parameters
@@ -165,15 +133,23 @@ def Coordinates(file, combined_chain_id):
                                        count, line[17:20]])            
     
     return cdn
-# take a look at the results
+'''Extract all the coordinates and store them in dictionary coordinates with keys
+   pdbid and the elements cdn
+'''
 coordinates = {}
 for i in good_combined_ids:
     with open(i + '.pdb', 'r') as file:
         coordinates[i] = Coordinates(file, good_combined_ids[i])
+'''Take a look at the results'''
+len(coordinates)
+coordinates.keys()
 coordinates['1adq'].keys()
+coordinates['1adq']['h1H']
 ##############################################################
 # Extract the contact
 '''
+Get_contact is to calculate the contact number between amino acids. This function
+        is time consuming.
 inputs, cdn, a dictionary in the form of with keys ['h1H', 'h2H', 'h3H',
          'l1L', 'l1L', 'l1L', ..Antigen chain ids..] 
          and the coordinates are in the form of [15.1, 2.2, 3.2, pos, aa]
@@ -183,9 +159,12 @@ inputs, cdn, a dictionary in the form of with keys ['h1H', 'h2H', 'h3H',
         matched_ids, a list in the form of [[H,L,A], [L, M, N]], where 
         [H, L, A] means those three are in a contacting group
 return: contact, a list, in the form of [[h1HA, 32, 15, 8], ....]
-        this means, the amino acid at position 32, which is located at CDRh1, 
+        this means, the amino acid at position 32, which is located at CDRh1 of chain H, 
         contact with amino acid at position 15 of chain 'A'. The contact number 
-        under the given cutoff is 8
+        under the given cutoff is 8. The contact number is calculated by the following way:
+            if atomA1 from aaA contacts with atomB1 from aaB, then the contact number 
+            between aaA and aaB increased by 1. The contact between atomA1 and atomB1
+            is only counted once.
 '''
 def Get_contact(cdn, matched_ids, cutoff = 4):
     # Creat an empty list to contain the temporary results
@@ -193,7 +172,7 @@ def Get_contact(cdn, matched_ids, cutoff = 4):
     squared_cutoff = cutoff**2
     # sorting the keys into CDR and antigen groups
     # it is better to use the information of the matched ids
-    # the grouped results should be stored in the form of[ [[h1H, h2H,h3h], [A]], ...]
+    # the grouped results should be stored in the form of[ [[h1H, h2H,h3H], [A]], ...]
     grouped =[]
     for matched in matched_ids:
         if matched[2] != '':
@@ -210,30 +189,15 @@ def Get_contact(cdn, matched_ids, cutoff = 4):
                     for atom2 in cdn[j]:
                         # We can accelerate this process by selecting the max abs first
                         diff = [atom1[0]-atom2[0],atom1[1]-atom2[1],atom1[2]-atom2[2]]                        
-#                        if max(abs(diff)) < cutoff:
-                            # is it faster to compare the square than the sequare root?
+                        # is it faster to compare the square than the sequare root?
                         s = 0
                         for component in diff:
                             s += component**2
                             if s > squared_cutoff:# this step can accelerate the calculation by a lot.
                                 break                        
                         if s <= squared_cutoff:
-                            contact_temp.append([i+j, atom1[3], atom2[3]])
-#                            if np.dot(diff,diff) <= squared_cutoff:
-#                                contact_temp.append([i+j, atom1[3], atom2[3]])  
-    #Count the contact number
-    # Count method 1, use while to count
-    #\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\#
-#    contact = []
-#    while contact_temp != []:
-#        contact = contact_temp[0]
-#        count = 0
-#        while contact in contact_temp:
-#            count += 1
-#            contact_temp.remove(contact)
-#        contact.append([contact[0], contact[1], contact[2], count])
-            
-    # Count method 2 Creat a dictionary to count\
+                            contact_temp.append([i+j, atom1[3], atom2[3]])         
+    # Count method: Creat a dictionary to count\
     contact = []
     count_dict = {}
     for i in contact_temp:
@@ -252,56 +216,55 @@ def Get_contact(cdn, matched_ids, cutoff = 4):
         contact.append(element)
             
     return contact
-
-# Take a look at the results, caltulate the running time
+##################################################################
+# do the calculation directly, see what happens
+# collect all the pdb ids
 import time
 start =time.clock()
 contact = {}
-for i in coordinates:
+n = 0
+for i in good_matched_ids:
+    n += 1
+    print('Calculating   ' + i + '     ' + str(n))
     contact[i] = Get_contact(coordinates[i], good_matched_ids[i], cutoff = 4)
 end = time.clock()
 print('Running time: %s Seconds'%(end-start))
+# remove the dud before saving
+dud_AAC = []
+for pdbid in contact:
+    if contact[pdbid] == []:
+        dud_AAC.append(pdbid)
+dud_AAC
+for dud in dud_AAC:
+    del contact[dud]
+    
+'''Save the results'''
+# save the results: sequence, contact
+#with open('sequence', 'w') as f:
+#    json.dump(sequence, f)
+#with open('contact', 'w') as f:
+#    json.dump(contact, f)
+#with open('dud_AAC', 'w') as f:
+#    json.dump(dud_AAC, f)
 
-# compare with the results of the previous method
-#with open('contact_older', 'r') as f:
-#    contact_older = json.load(f) 
-#contact_older['1adq']
-## systematic comparison
-#different_id = []
-#for i in contact:
-#    for j in contact_older[i]:
-#        if j not in contact[i] and i not in different_id:
-#            different_id.append(i)
-#different_id 
-#contact['1g9m'][:6]  
-#contact_older['1g9m'][:6]
-## Check if the number of contacting amino acids are the same
-#for i in contact:
-#    if len(contact[i]) == len(contact_older[i]):
-#        print ('The length of '+ i + ' are the same')
-#    else:
-#        print ('The length of '+ i + ' are different')
-## Check if the total number of contacts are the same
-#for keys in contact:
-#    new_s = 0
-#    for new in contact[keys]:
-#        new_s += new[3]
-#    old_s = 0
-#    for old in contact_older[keys]:
-#        old_s += old[3]
-#    if new_s == old_s:
-#        print(keys + '         same')
-#    else:
-#        print(keys + '         different')
-#        
-#
-#contact['5kel']
-#len(contact['5kel'])
-#len(contact_older['5kel'])
-#GoodPeople['5kel']
-#with open('sequence_older', 'r') as f:
-#    sequence_older = json.load(f)            
-#sequence['1g9m'].keys()
-#sequence_older['1g9m'].keys()
-#sequence['1g9m']['G'][37]
-#sequence_older['1g9m']['G'][37]
+#with open('sequence', 'r') as f:
+#    old_sequence = json.load(f)
+#with open('contact', 'r') as f:
+#    old_contact = json.load(f)
+#with open('dud_AAC', 'r') as f:
+#    old_dud_AAC = json.load(f)
+    
+#if old_sequence == sequence:
+#    print('The sequences are the same!')
+#else:
+#    print('The sequences are different!')
+#    
+#if old_contact == contact:
+#    print('The contacts are the same!')
+#else:
+#    print('The contacts are different!')
+#    
+#if old_dud_AAC == dud_AAC:
+#    print('The dud_AACs are the same!')
+#else:
+#    print('The dud_AACs are different!')
