@@ -1,19 +1,54 @@
-
+import copy
 import os
-os.chdir("/home/leo/Documents/Database/Pipeline/Homo")
-os.listdir()
-
 import json
-with open('ready_for_FrameConstraint', 'r') as f:
-    ac_contact = json.load(f)
-with open('sequence', 'r') as f:
-    sequence = json.load(f)
-len(ac_contact.keys())
-ac_contact['6b5sHh'] 
+
+#ac_contact['6b5sHh'] 
 #########################################################
 
 ##################################################################################
+def Add(interval, header):
+    res = [header]
+    m = 0
+    while len(res) <= len(interval):
+        res.append(res[-1]+interval[m])
+        m += 1
+    return res
+def Sub_seq(sequence, sub_sequence):
+    boolean = True
+    for i in sub_sequence:
+        if i not in sequence:
+            boolean = False
+            break
+    return boolean
+Sub_seq([1, 2, 3], [1, 4])
 
+'''
+Define a function with the input the sequence a the free type
+The return value is the consecutive sequence under the given free type
+'''
+def Get_consecutive(sequence, length, free_type):
+    interval = []
+    for i in range(free_type+1):
+        interval.append([i+1])
+    while len(interval[0]) + 1 <length:
+        longer_interval = []
+        for inter in interval:            
+            for j in range(free_type+1):
+                longer_inter = copy.deepcopy(inter)
+                longer_inter.append(j+1)
+                longer_interval.append(longer_inter)
+        interval = longer_interval
+    # Generate the subsequence with the given length and free_type
+    sub_sequence = []
+    while len(sequence) >= length:
+        temp_sub_sequence = []
+        for i in interval:
+            temp_sub_sequence = Add(i, sequence[0])
+            if Sub_seq(sequence, temp_sub_sequence):
+                if temp_sub_sequence not in sub_sequence:
+                    sub_sequence.append(temp_sub_sequence)
+        sequence.remove(sequence[0])        
+    return sub_sequence
 ####################################################################################
 '''
 The above functions are two long, it is better to write them into class object
@@ -23,14 +58,13 @@ cn_gated:
     stores all the contacting amino acids with the contact number no less than CN_gate
 Ag_all_ctn:
     continuous amino acids of Atigen epitopes satisfies the Ag_free_type requirement
-
 '''
 class FrameConstraint(object):
 
     def __init__(self, ac_contact, sequence,
                   CN_gate = 1, cn_gated = None, Ag_frame_length = None, Ag_free_type = None,
                  Ag_all_ctn = None, Ab_frame_length = None, Ab_free_type = None,Ab_all_ctn = None, 
-                 parepi_pos = None, parepi_aa = None):
+                 parepi_pos = None, parepi_aa = None, the_middle_aa_Ab=None, the_middle_aa_Ag=None ):
         self.ac_contact = ac_contact
         self.sequence = sequence
         self.CN_gate = CN_gate  
@@ -54,7 +88,7 @@ class FrameConstraint(object):
     return: 
     '''
              
-    def All_ctn(self, length, free_type = 0, chain_id = 'Ag'):
+    def All_ctn(self, length, free_type = 0, chain_id = 'Ag', jump = False):
         ac_contact = self.cn_gated
         # get the posion of the chain id
         if chain_id == 'Ag':
@@ -121,9 +155,12 @@ class FrameConstraint(object):
                 # from partitions, which the longest consecutive sequenences.
                 for longest in partitions:
                     if len(longest) >= length:
-                        for i in range(len(longest) - length+1):
-                            all_ctn[Ab_chian][cdr].append(longest[i: i+length])
-                            # the resluts of slicing a list is a list as well
+                        if jump:
+                            all_ctn[Ab_chian][cdr].extend(Get_consecutive(longest, length, free_type))
+                        else:
+                            for i in range(len(longest) - length+1):
+                                all_ctn[Ab_chian][cdr].append(longest[i: i+length])
+                                # the resluts of slicing a list is a list as well
         if chain_id == 'Ag':
             self.Ag_frame_length = length
             self.Ag_free_type = free_type
@@ -192,7 +229,7 @@ class FrameConstraint(object):
                         if fcdn[1] == last_Ab and fcdn[2] == last_Ag:
                             l2 = fcdn[3]
                     if f1 + l2 < f2 + l1:
-                        max_match[1].sort(reverse = True)
+                        max_match[2].sort(reverse = True)
                  #calculate the total number of contact in this cdr
                 n = 0
                 for fcdn in ac_contact[Ab_chain]:
@@ -222,22 +259,80 @@ class FrameConstraint(object):
                     for Ag_pos in parepi[2]:
                         Ag_aas.append(sequence[Ab_chain[:4]][parepi[0][3]][Ag_pos])
                     parepi_aa.append([Ab_aas, Ag_aas, parepi[3], parepi[4]])
-        self.parepi_aa = parepi_aa                
-                        
+        self.parepi_aa = parepi_aa   
+    
+    def The_middle_aa(self):
+        the_middle_aa_Ab = []
+        the_middle_aa_Ag = []
+        complete_anchor_Ab = []
+        complete_anchor_Ag = []
+        parepi_pos = self.parepi_pos
+        sequence = self.sequence
+        for Ab_chain, value in parepi_pos.items():
+            for matches in value:#value in the form of [['h1BC', [32, 34], [26, 25], 2, 21],]
+                Ab_pos = matches[1]# matches in the form of ['h1BC', [32, 34], [26, 25], 2, 21]
+                Ag_pos = matches[2]
+                if Ab_pos != [] and Ag_pos != []:
+                    Ab_pos.sort()
+                    Ag_pos.sort()
+                    if len(Ab_pos) >=2:
+                        for i in range(len(Ab_pos)-1):
+                            if Ab_pos[i+1] - Ab_pos[i] >= 2:                                
+                                nples_Ab = []
+                                middle_Ab = []                                
+                                for j in range(Ab_pos[i], Ab_pos[i+1]+1):
+                                    nples_Ab.append(sequence[Ab_chain[:4]][matches[0][2]][j])
+                                for j in range(Ab_pos[i]+1, Ab_pos[i+1]):
+                                    the_middle_aa_Ab.append(sequence[Ab_chain[:4]][matches[0][2]][j])
+                                    middle_Ab.append(sequence[Ab_chain[:4]][matches[0][2]][j])
+                                complete_anchor_Ab.append([nples_Ab, middle_Ab])
+                            
+                    if len(Ag_pos) >= 2:           
+                        for i in range(len(Ag_pos)-1):
+                            if Ag_pos[i+1] - Ag_pos[i] >= 2:
+                                nples_Ag = []
+                                middle_Ag = []
+                                for j in range(Ag_pos[i], Ag_pos[i+1]+1):
+                                    nples_Ag.append(sequence[Ab_chain[:4]][matches[0][3]][j])
+                                for j in range(Ag_pos[i]+1, Ag_pos[i+1]):
+                                    the_middle_aa_Ag.append(sequence[Ab_chain[:4]][matches[0][3]][j])
+                                    middle_Ag.append(sequence[Ab_chain[:4]][matches[0][3]][j])
+                                complete_anchor_Ag.append([nples_Ag, middle_Ag])
+                
+        self.the_middle_aa_Ab = the_middle_aa_Ab
+        self.the_middle_aa_Ag = the_middle_aa_Ag
+        self.complete_anchor_Ab = complete_anchor_Ab
+        self.complete_anchor_Ag = complete_anchor_Ag
+            
         
+            
+           
+                        
+
+os.chdir("/home/leo/Documents/Database/Pipeline/Mouse")
+os.listdir()
+
+
+with open('ready_for_FrameConstraint', 'r') as f:
+    ac_contact = json.load(f)
+with open('sequence', 'r') as f:
+    sequence = json.load(f)
+len(ac_contact.keys())
+      
 testing = FrameConstraint(ac_contact, sequence, CN_gate = 1)     
 testing.CN_gated() 
 len(testing.cn_gated)           
-testing.cn_gated.keys()       
-testing.All_ctn(length = 2, free_type = 1, chain_id = 'Ag')        
+keys = list(testing.cn_gated.keys())  
+testing.cn_gated[keys[0]]    
+testing.All_ctn(length = 3, free_type = 1, chain_id = 'Ag', jump = True)        
 testing.Ag_all_ctn.keys()
-testing.Ag_all_ctn['5yaxBl']
+#testing.Ag_all_ctn['5yaxBl']
 len(testing.Ag_all_ctn)
 #testing.Ag_all_ctn['6eluKh'] 
 #testing.ac_contact['6eluKh']       
 testing.Ag_free_type    
 testing.Ag_frame_length
-testing.All_ctn(length = 2, free_type = 0, chain_id = 'Ab')    
+testing.All_ctn(length = 3, free_type = 1, chain_id = 'Ab', jump = True)    
 testing.Ab_all_ctn.keys()
 len(testing.Ab_all_ctn)  
 #testing.Ab_all_ctn['6eluKh']   
@@ -249,27 +344,103 @@ testing.parepi_pos.keys()
 testing.Parepi_aa()    
 len(testing.parepi_aa)
 testing.parepi_aa.sort()
-testing.parepi_aa[:10]
+testing.parepi_aa[:20]
+
+#keys1 = list(testing.parepi_pos.keys())
+#testing.parepi_pos[keys1[7]]
+#testing.The_middle_aa()
+#len(testing.the_middle_aa_Ab)
+
+def middle_frequency(list_middle_aa):
+    aa = set(list_middle_aa)
+    frequency = []
+    for i in aa:
+        n = 0
+        for j in list_middle_aa:
+            if j == i:
+                n += 1
+        frequency.append([i, n])
+    frequency.sort(key = lambda x:x[1])
+    return frequency
+
+Ab_frequency = middle_frequency(testing.the_middle_aa_Ab)
+Ag_frequency = middle_frequency(testing.the_middle_aa_Ag)
+Ab_frequency
+Ag_frequency
+testing.complete_anchor_Ab.sort(key = lambda x:x[1])
+testing.complete_anchor_Ab
+for i in testing.complete_anchor_Ab:
+    if i[1] == [Ab_frequency[-4][0]]:
+        print(i)
+testing.complete_anchor_Ag.sort(key = lambda x:x[1])
+testing.complete_anchor_Ag
+
+value = [['h1BC', [1, 3], [2, 3], 2, 21],
+         ['h2BC', [4, 7], [4, 6], 12, 33],
+         ['h3BC', [8, 9], [7, 10], 23, 64]]
+sequence = {}
+sequence['B'] = list(range(15))
+sequence['C'] = list(range(15))
+
+the_middle_aa_Ab = []
+the_middle_aa_Ag = []
+for matches in value:#value in the form of [['h1BC', [32, 34], [26, 25], 2, 21],]
+    Ab_pos = matches[1]# matches in the form of ['h1BC', [32, 34], [26, 25], 2, 21]
+    Ag_pos = matches[2]
+    if Ab_pos != [] and Ag_pos != []:
+        Ab_pos.sort()
+        Ag_pos.sort()
+        if len(Ab_pos) >=2:
+            for i in range(len(Ab_pos)-1):
+                if Ab_pos[i+1] - Ab_pos[i] >= 2:
+                    for j in range(Ab_pos[i]+1, Ab_pos[i+1]):
+                        the_middle_aa_Ab.append(sequence[matches[0][2]][j])
+        if len(Ag_pos) >= 2:           
+            for i in range(len(Ag_pos)-1):
+                if Ag_pos[i+1] - Ag_pos[i] >= 2:
+                    for j in range(Ag_pos[i]+1, Ag_pos[i+1]):
+                        the_middle_aa_Ag.append(sequence[matches[0][3]][j])
+
+the_middle_aa_Ab
+the_middle_aa_Ag
+
+
+from Bio import Align
+from Bio.SubsMat.MatrixInfo import blosum62
+aligner = Align.PairwiseAligner()
+aligner.substitution_matrix = blosum62
+aligner.open_gap_score = -5
+aligner.extend_gap_score = -1
+aligner.mode = 'global'
+
 #with open('parepi_aa_2_2', 'r') as f:
 #    parepi_aa_2_2 = json.load(f)    
 #parepi_aa_2_2['6eluKh']
 #sequence['6elu']['K'][102]
 #sequence['6elu']['J'][164]      
-#    
-os.chdir("/home/leo/Documents/Database/Pipeline/Ready_2_2_0_1")
+#############################################################################
+'''
+This block is to save the results. You have to watch out for the working directory and 
+the name of the saved files.
+'''
+os.chdir("/home/leo/Documents/Database/Pipeline/Ready_3_3_1_1")
 os.listdir()    
-with open('ready_2_2_0_1', 'w') as f:
+with open('ready_3_3_1_1__cn_gate_1_Ordered_Mouse_jump', 'w') as f:
     json.dump(testing.parepi_aa, f)
-    
-    
-    
-    
-    
-    
-    
-
-                    
-
+#with open('middle_homo_Ab', 'w') as f:
+#    json.dump(Ab_frequency, f)
+#with open('middle_homo_Ag', 'w') as f:
+#    json.dump(Ag_frequency, f)
+  
+with open('ready_3_3_1_1__cn_gate_1_Ordered_Homo_jump', 'r') as f:
+    Homo = json.load(f)
+with open('ready_3_3_1_1__cn_gate_1_Ordered_Mouse_jump', 'r') as f:
+    Mouse = json.load(f)
+#
+#Mouse.extend(Homo) 
+#len(Mouse) 
+#with open('ready_3_3_1_1__cn_gate_1_all_jump', 'w') as f:
+#    json.dump(Mouse, f)    
 
     
 
