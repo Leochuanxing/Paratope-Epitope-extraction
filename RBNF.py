@@ -61,17 +61,90 @@ def Distance_matrix(samples, mode = 'Multiplication'):
     for i in range(n):
         for j in range(i, n):
             if mode == 'Addition':
-                distance_matrix[i,j] = Addition_distance(samples[i][0], samples[j][0], samples[i][1], samples[j][1])
+                distance_matrix[i,j] = Addition_distance(To_seq(samples[i][0]),To_seq(samples[j][0]),
+                               To_seq(samples[i][1]),To_seq(samples[j][1]))
                 distance_matrix[j,i] =  distance_matrix[i,j]
             if mode == 'Multiplication':
-                distance_matrix[i,j] = Multiplication_distance(samples[i][0], samples[j][0], samples[i][1], samples[j][1])
+                distance_matrix[i,j] = Multiplication_distance(To_seq(samples[i][0]),To_seq(samples[j][0]),
+                               To_seq(samples[i][1]),To_seq(samples[j][1]))
                 distance_matrix[j,i] =  distance_matrix[i,j]
-    # Lets scale the distance matrix
-    std = np.std(distance_matrix, axis = 0, keepdims=True)
-    distance_matrix = distance_matrix / np.reshape(std, (1, n))
+    # Lets scale the distance matrix. No, do not scale here, scale the design matrix
+#    std = np.std(distance_matrix, axis = 0, keepdims=True)
+#    distance_matrix = distance_matrix / np.reshape(std, (1, n))
     return distance_matrix
 #a = np.arange(0, 12, 1)
 #np.reshape(a, (3, 4))
+###################################################################################
+def Generate_random_negative(sample_size, data, Ab_lenth, Ag_length):
+    
+    TripleSingle =  [['TYR', 'Y'], ['LYS', 'K'],['ASP', 'D'], ['ASN', 'N'], ['TRP', 'W'], ['PHE', 'F'], ['GLN', 'Q'],
+                    ['GLU', 'E'], ['PRO', 'P'], ['GLY', 'G'], ['THR', 'T'],['SER', 'S'], ['ARG', 'R'], ['HIS', 'H'],
+                    ['LEU', 'L'], ['ILE', 'I'], ['CYS', 'C'], ['ALA', 'A'], ['MET', 'M'], ['VAL', 'V']]
+    AA = []
+    for aa in TripleSingle:
+        AA.append(aa[0])
+        
+    Ab_Ag = []
+    for parepi in data:
+        Ab_Ag.append([parepi[0], parepi[1]])
+        
+    negative_samples = []
+    while len(negative_samples) < sample_size:
+        r_Ab_r_Ag = []
+        while r_Ab_r_Ag == []:        
+            r_Ab = random.sample(AA, Ab_lenth)
+            r_Ag = random.sample(AA, Ag_length)
+            r_Ab_r_Ag  = [r_Ab, r_Ag]
+            if r_Ab_r_Ag in Ab_Ag:
+                r_Ab_r_Ag  = []
+        negative_samples.append([r_Ab, r_Ag, -1, -1])
+    return negative_samples
+#####################################################################################
+    
+os.chdir("/home/leo/Documents/Database/Pipeline/Ready_2_2_1_1")
+with open('ready_2_2_1_1__cn_gate_1_all', 'r') as f:
+    data = json.load(f)
+
+negative_samples = Generate_random_negative(len(data), data, 2, 2)
+len(negative_samples)
+negative_samples[:6]
+'''
+change the value of the positive samples to 1
+'''
+def Processing_positive(data):
+    positive_data = []
+    for parepi in data:
+        positive_data.append([parepi[0], parepi[1], 1, 1])
+    return positive_data
+        
+positive_data = Processing_positive(data)        
+len(positive_data)        
+positive_data[:6]  
+      
+def Generate_testing_set(data):
+    n = math.floor(len(data) * 0.1)
+    testing_set = random.sample(data, n)
+    for i in testing_set:
+        data.remove(i)
+    return data, testing_set
+positive_training_set, positive_testing_set = Generate_testing_set(positive_data)
+negative_training_set, negative_testing_set = Generate_testing_set(negative_samples)
+#len(positive_training_set)
+#positive_training_set[:6]
+#len(positive_testing_set)
+#positive_testing_set[:6]
+#len(negative_testing_set)
+#negative_training_set[:6]
+#len(negative_testing_set)
+#negative_testing_set[:6]
+
+training_set = copy.deepcopy(positive_training_set)
+training_set.extend(negative_training_set)
+len(training_set)
+
+distance_matrix = Distance_matrix(training_set, mode='Multiplication')
+distance_matrix.shape
+distance_matrix[:5, :5]
 ############################################################
 '''
 Pruning:
@@ -97,15 +170,40 @@ def Generate_centers(distance_matrix, cover_radius):
     while len(left_over) != 0:
         centers.append(left_over[0])
         to_be_removed = []
+        left_over.remove(left_over[0])
         for i in left_over:
-            if distance_matrix[i, left_over[0]] <= cover_radius:
+            if distance_matrix[i, centers[-1]] <= cover_radius:
                 to_be_removed.append(i)
         for j in to_be_removed:
             left_over.remove(j)
     # Do we need to sort the centers? I don't think so.
+#    print(len(centers))
     samples_to_centers_matrix = distance_matrix[:, centers]
     return centers, samples_to_centers_matrix
-
+#####################################################################################
+    
+n_samples = distance_matrix.shape[0]
+cover = np.arange(0.1, 5, 0.1)
+cover_radius = cover[0]
+centers, samples_to_centers_matrix = Generate_centers(distance_matrix, cover_radius)
+len(centers)
+n_centers = math.floor(n_samples * 0.1)
+i = 0
+while len(centers) > n_centers and i < len(cover)-1:
+    i += 1
+    print(len(centers), '   ', i)
+    cover_radius = cover[i]
+    centers, samples_to_centers_matrix = Generate_centers(distance_matrix, cover_radius)
+    
+len(centers)
+centers    
+for i in centers:
+    for j in centers:
+        if i != j and distance_matrix[i,j] <= cover_radius:
+            print('Something is wrong'\
+                  )
+            break  
+samples_to_centers_matrix.shape
 #import numpy as np
 #matrix = np.zeros((6, 6))
 #for i in range(6):
@@ -146,20 +244,41 @@ def Inverse_Multi_Quadric(distance,c, beta):
     return (distance**2 + c**2)**(-beta)
 
 def Design_matrix(distance_matrix, basis_function = 'Markov', radius = 1):
-    ncol = np.shape(distance_matrix)[0]
-    nrow = np.shape(distance_matrix)[1]
+    nrow = np.shape(distance_matrix)[0]
+    ncol = np.shape(distance_matrix)[1]
+    
     design_matrix = np.zeros_like(distance_matrix)
-    for i in range(ncol):
-        for j in range(nrow):
+    for i in range(nrow):
+        for j in range(ncol):
             if basis_function == 'Gaussian':
                 design_matrix[i, j] = Gaussian(distance_matrix[i, j], radius)
             elif basis_function == 'Markov':
                 design_matrix[i, j] = Mrakov(distance_matrix[i, j], radius)
             elif basis_function == 'Inverse_Multi_Quadric':
-                design_matrix[i, j] = Inverse_Multi_Quadric(distance_matrix[i, j], c=1, beta=2)    
-                
+                design_matrix[i, j] = Inverse_Multi_Quadric(distance_matrix[i, j], c=1, beta=2)  
+    # Since we will use the linear conbination of this design matrix, it is reasonable to normalize it
+    average = np.average(design_matrix, axis= 0)
+    design_matrix = design_matrix - average
+    std = np.std(design_matrix)
+    design_matrix = design_matrix / std
+    # Should we add a constant column?  Lets add.
+    design_matrix = np.hstack((design_matrix, np.ones((nrow,1))))
+           
     return design_matrix
+#####################################################################################
 
+design_matrix = Design_matrix(samples_to_centers_matrix, basis_function = 'Markov', radius = 1)    
+design_matrix.shape
+design_matrix[:5, :5]
+#import numpy as np
+#a = np.arange(0, 16)
+#design_matrix = np.reshape(a, (4, 4))
+#average = np.average(design_matrix, axis= 0)
+#design_matrix = design_matrix - average
+#design_matrix
+#std = np.std(design_matrix)
+#design_matrix /= std
+#design_matrix
 ##############################################################################
 '''
 Loss:
@@ -188,25 +307,48 @@ def Loss(design_matrix, observed_values, parameter):
     coeff = parameter['coeff']
     reg = parameter['reg']
     
-    coeff_square = coeff**2
+    coeff_square = coeff*coeff
     diff = design_matrix.dot(coeff) - observed_values
-    loss = (diff.T).diff
-    loss += coeff_square.dot(reg)
-    grad_coeff = 2*(design_matrix.T).dot(diff)
-    grad_reg = coeff_square.reshape((-1, 1))
+    loss = (diff.T).dot(diff)
+    loss += (coeff_square.T).dot(reg)
+    grad_coeff = 2*(design_matrix.T).dot(diff) + 2 * coeff * reg
     # Pack up the results
     gradient = {}
     gradient['coeff'] = grad_coeff
-    gradient['reg'] = grad_reg
     
     return loss, gradient
+####################################################################################
+observed_values = np.zeros((len(training_set), 1))
+for i in range(len(training_set)):
+    observed_values[i,0]=training_set[i][2]
+len(observed_values)
+observed_values[:5]    
+training_set[:5]
+#ncol = np.shape(design_matrix)[1]
+#coeff = np.zeros((ncol,1))
+#parameter = {}
+#parameter['coeff'] = coeff
+##The reg should not be negative. It is better that reg > delta, a small positive number
+#reg = np.ones((ncol,1)) * 0.1
+#parameter['reg'] = reg
+#loss, gradient = Loss(design_matrix, observed_values, parameter)
 
+###################################################################################
+
+#import numpy as np
 #a = np.arange(0, 6)
-#a.reshape((6,1))
-#c = a**2
-#c.reshape((-1, 1))
-##b = np.ones((6,1))
-#c.dot(b)
+#a = a.reshape((6,1))
+#a.shape
+#c = np.arange(0, 16)
+#c = c.reshape((-1, 1))
+#c[:8, 0].reshape((-1, 1))
+#c[8:16,0]
+#np.hstack((a, np.ones((2, 1))))
+#b = np.ones((6,1))*2
+#a*b
+#a*a
+#a
+#np.where(a<3, 3, a)
 ##################################################################################
 '''
 Train_RBFN_BFGS:
@@ -228,57 +370,172 @@ Output:
         parameter['coeff'], the coefficient after training
         parameter['reg'], the regularization coefficient    
 '''
-def Train_RBFN_BFGS(sum_all, indicator, rho=0.9, c = 1e-3, termination = 1e-2):
-    # Normalize the input sum_all
-    average = np.average(sum_all, axis = 0)
-    std = np.std(sum_all, axis = 0, keepdims = True)
-    sum_all -= average
-    sum_all /= std
-    ones = np.ones((np.shape(sum_all)[0], 1))
-    sum_all = np.hstack((sum_all, ones))
-    # Give the initial Hessian h
-    H = np.eye(3)*1e-5
+
+
+def Train_RBFN_BFGS(design_matrix, observed_values, rho=0.9, c = 1e-3, termination = 1e-2):
+    nrow = np.shape(design_matrix)[0]
+    ncol = np.shape(design_matrix)[1]
+    
+    # Give the initial Hessian H. The variables are the coeff and reg
+    H = np.eye(ncol)/(10*nrow)
     # Set the starting point
-    coeff = np.zeros((3, 1))
+    coeff = np.zeros((ncol,1))
     parameter = {}
     parameter['coeff'] = coeff
+    #The reg should not be negative. It is better that reg > delta, a small positive number
+    reg = np.ones((ncol,1)) * 1
     parameter['reg'] = reg
+    # Stack up the variables
+#    stacked_coeff = np.vstack((coeff, reg))
    # BFGS algorithm
-    loss, grad = Loss(sum_all, indicator, parameter)
-    grad_square = (grad.T).dot(grad)
+    loss, gradient = Loss(design_matrix, observed_values, parameter)
+    grad_coeff = gradient['coeff']
+    grad_square = (grad_coeff.T).dot(grad_coeff)
     while grad_square >= termination**2:        
-        p = - H.dot(grad)        
+        p = - H.dot(grad_coeff)        
         # Find the next coeff
         parameter_new = {}
-        parameter_new['reg'] = reg
         parameter_new['coeff'] = p + parameter['coeff']
+        parameter_new['reg'] = parameter['reg']
         
-        new_loss, new_grad = Loss(sum_all, indicator, parameter_new)
+        new_loss, new_gradient = Loss(design_matrix, observed_values, parameter_new)
 
-        while new_loss > loss + c * (grad.T).dot(p):
+        while new_loss > loss + c * (grad_coeff.T).dot(p):
             p *= rho
-            print(p, 'p')
-            parameter_new['coeff'] = p + parameter['coeff']
-            new_loss, new_grad = Loss(sum_all, indicator, parameter_new)
+            parameter_new['coeff'] = p + parameter['coeff']            
+            new_loss, new_gradient = Loss(design_matrix, observed_values, parameter_new)
         
         # update H
         s = p
-        y = new_grad - grad
+        new_grad = new_gradient['coeff']
+        y = new_grad - grad_coeff
         r = (y.T).dot(s)
         if r != 0:
             r = 1/r
-            I = np.eye(3)
+            I = np.eye(ncol)
             H = (I - r*s.dot(y.T)).dot(H).dot(I - r*y.dot(s.T)) + r*s.dot(s.T)
         else:
             H = I
         # Update loss, grad, grad_square and paramter
         loss = new_loss
-        grad = new_grad
+        grad_coeff = new_grad
         parameter['coeff'] = parameter_new['coeff']
-        grad_square = (grad.T).dot(grad)
+        grad_square = (grad_coeff.T).dot(grad_coeff)
         print(loss, '    ', grad_square)
     return parameter, loss
+###########################################################################################################
+parameter, loss = Train_RBFN_BFGS(design_matrix, observed_values, rho=0.85, c = 1e-3, termination = 1e-2)
+parameter['coeff'].shape
 ###############################################################################
+'''
+Generating the testing design matrix
+'''
+len(training_set)
+def Generate_testing_design_matrix(testing_data, centers, training_set, mode = 'Multiplication', basis_function = 'Markov'):
+    centers_parepi = [training_set[i] for i in centers]
+    nrow = len(testing_data)
+    ncol = len(centers_parepi)
+    distance_matrix = np.zeros((nrow,ncol))
+    for i in range(nrow):
+        for j in range(ncol):
+            if mode == 'Addition':
+                distance_matrix[i,j] = Addition_distance(To_seq(testing_data[i][0]),To_seq(centers_parepi[j][0]),
+                               To_seq(testing_data[i][1]),To_seq(centers_parepi[j][1]))
+            if mode == 'Multiplication':
+                distance_matrix[i,j] = Multiplication_distance(To_seq(testing_data[i][0]),To_seq(centers_parepi[j][0]),
+                               To_seq(testing_data[i][1]),To_seq(centers_parepi[j][1]))
+                
+    testing_design_matrix = Design_matrix(distance_matrix, basis_function, radius = 1)
+    
+    return testing_design_matrix
+
+testing_data = copy.deepcopy(positive_testing_set)
+testing_data.extend(negative_testing_set)
+len(testing_data)
+testing_data[:6]
+testing_data[-6:-1]
+testing_design_matrix = Generate_testing_design_matrix(testing_data, centers,\
+                                                       training_set, mode = 'Multiplication', basis_function = 'Markov')
+testing_design_matrix.shape
+#a = [1, 3, 5]
+#b = list(range(15))
+#c = [b[i] for i in a]
+#c
+################################################################################
+def Prediction(testing, parameter, testing_design_matrix):
+    coeff = parameter['coeff']
+    prediction = testing_design_matrix.dot(coeff)
+    n = 0
+    for i in range(len(testing)):
+        if prediction[i,0] > 0 and testing[i][2] == 1:
+            n += 1
+        elif prediction[i,0] < 0 and testing[i][2] == -1:
+            n += 1
+    rate = n / len(testing)
+    return round(rate, 3)
+
+rate = Prediction(testing_data, parameter, testing_design_matrix)
+
+#################################################################################
+'''
+Do a concrete predict. Don't just predict whether they contact or not, but also the 
+exact paratope
+'''
+len(positive_testing_set)
+len(negative_testing_set)
+len(testing_data)
+def Concrete_prediction(one_positive_sample, centers, positive_training_set, parameter, \
+                        training_set, mode = 'Multiplication', basis_function = 'Markov'):
+    # get the positive matches with the one_positive_sample, and the true closest.
+    closest = 0
+    score = -10000
+    positive_parepi = []
+    for ind in range(len(centers)):
+        i = centers[ind]
+        if i <= len(positive_training_set)-1:
+            positive_parepi.append([positive_training_set[i][0], one_positive_sample[1]])
+            align_score = aligner.score(To_seq(one_positive_sample[0]), To_seq(positive_training_set[i][0]))
+            if align_score > score:
+                score = align_score
+                closest = ind
+            
+    #Calculate the testing_design matrix
+    testing_design_matrix = Generate_testing_design_matrix(positive_parepi, centers, training_set, \
+                                   mode, basis_function)
+    # Prediction
+    coeff = parameter['coeff']
+    prediction = testing_design_matrix.dot(coeff)
+    prediction = prediction.flatten().tolist()
+    # find the predictin score for the closest
+    score_for_closest = prediction[closest]
+    # find the lowest prediction score for the top 10 percent
+    n_top = math.floor(len(positive_parepi) * 0.1)
+    prediction.sort(reverse = True)
+    n_top_score = prediction[n_top]
+    # Tell whether our prediction is correct
+    if score_for_closest >= n_top_score:
+        return True
+    else:
+        return False
+    
+n = 0
+j = 0
+for i in positive_testing_set:
+    j += 1
+    print(j)
+    pred = Concrete_prediction(i, centers, positive_training_set, parameter, training_set,\
+                               mode = 'Multiplication', basis_function = 'Markov')
+    if pred:
+        n += 1
+round(n/len(positive_testing_set), 2)        
+#a = np.arange(0, 8)
+#a = a.reshape((-1, 1))
+#a
+#a = a.flatten().tolist()
+#a
+#a.sort(reverse=True)
+#a
+################################################################################
 
 class RBFN(object):
     def __init__(self, training, testing, basis_function = 'Markov', distance_mode = 'Multiplication_distance'):
