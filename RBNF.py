@@ -270,6 +270,9 @@ def Design_matrix(distance_matrix, basis_function = 'Markov', radius = 1):
 design_matrix = Design_matrix(samples_to_centers_matrix, basis_function = 'Markov', radius = 1)    
 design_matrix.shape
 design_matrix[:5, :5]
+
+design_matrix = Design_matrix(distance_matrix, basis_function = 'Markov', radius = 1)
+design_matrix.shape
 #import numpy as np
 #a = np.arange(0, 16)
 #design_matrix = np.reshape(a, (4, 4))
@@ -372,21 +375,24 @@ Output:
 '''
 
 
-def Train_RBFN_BFGS(design_matrix, observed_values, rho=0.9, c = 1e-3, termination = 1e-2):
+def Train_RBFN_BFGS(design_matrix, observed_values, rho=0.9, c = 1e-3, termination = 1e-2,\
+                    parameter_inheritance = False, parameter=None):
+    
     nrow = np.shape(design_matrix)[0]
     ncol = np.shape(design_matrix)[1]
-    
+        
     # Give the initial Hessian H. The variables are the coeff and reg
     H = np.eye(ncol)/(10*nrow)
-    # Set the starting point
-    coeff = np.zeros((ncol,1))
-    parameter = {}
-    parameter['coeff'] = coeff
-    #The reg should not be negative. It is better that reg > delta, a small positive number
-    reg = np.ones((ncol,1)) * 1
-    parameter['reg'] = reg
-    # Stack up the variables
-#    stacked_coeff = np.vstack((coeff, reg))
+    # Check if it inherit the parameter from somewhere else.
+    if not parameter_inheritance :
+        # Set the starting point
+        coeff = np.zeros((ncol,1))
+        parameter = {}
+        parameter['coeff'] = coeff
+        #The reg should not be negative. It is better that reg > delta, a small positive number
+        reg = np.ones((ncol,1)) * 1
+        parameter['reg'] = reg
+
    # BFGS algorithm
     loss, gradient = Loss(design_matrix, observed_values, parameter)
     grad_coeff = gradient['coeff']
@@ -517,17 +523,23 @@ def Concrete_prediction(one_positive_sample, centers, positive_training_set, par
         return True
     else:
         return False
-    
-n = 0
-j = 0
-for i in positive_testing_set:
-    j += 1
-    print(j)
-    pred = Concrete_prediction(i, centers, positive_training_set, parameter, training_set,\
-                               mode = 'Multiplication', basis_function = 'Markov')
-    if pred:
-        n += 1
-round(n/len(positive_testing_set), 2)        
+################################################################################################3
+'''
+concrete_prediction_rate:
+    A function gives the concrete prediction rate, which can be compared with the hierachical clustering
+'''
+def Concrete_prediction_rate(positive_testing_set, centers, positive_training_set, training_set,\
+                             mode = 'Multiplication', basis_function = 'Markov'):
+    n = 0
+    j = 0
+    for i in positive_testing_set:
+        j += 1
+        print(j)
+        pred = Concrete_prediction(i, centers, positive_training_set, parameter, training_set,\
+                                   mode, basis_function)
+        if pred:
+            n += 1
+    return round(n/len(positive_testing_set), 2)        
 #a = np.arange(0, 8)
 #a = a.reshape((-1, 1))
 #a
@@ -536,419 +548,164 @@ round(n/len(positive_testing_set), 2)
 #a.sort(reverse=True)
 #a
 ################################################################################
-
-class RBFN(object):
-    def __init__(self, training, testing, basis_function = 'Markov', distance_mode = 'Multiplication_distance'):
-        self.training = training
-        self.testing = testing
-        self.distance_mode = distance_mode
-        self.basis_function = basis_function
-        self.params = {}
-        observed_contact = []
-        for parepi in training:
-            observed_contact.append(parepi[2])
-        self.observed_contact = np.asanyarray(observed_contact)
-        
-    def Centers_from_NewDataAnalysis(self, center_mode='positive_only'):
-        if center_mode == 'positive_only':
-            with open('RBFN_centers_Ab_in_Ag_Mouse', 'r') as f:
-                centers = json.load(f)
-            self.centers = centers
-            self.params['W'] =  0.1 * np.random.randn(len(self.centers), 1)
-        elif center_mode == 'augmented':
-            with open('Augmented_centers_Mouse', 'r') as f:
-                centers = json.load(f)
-            self.centers = centers
-            self.params['W'] =  0.1 * np.random.randn(len(self.centers), 1)
-            
-
-
+'''
+The following block is to generate the centers through the ridge method.
+The basic idea is:
+    Fist lets fix the regulization coefficient the same for all the centers, then 
+    we do the optimization with the regularization term part of the loss function.
+    Then we check which coefficent is among the smallest ones, we delete the corresponding
+    centers. 
     
+    We repeat the process, until we get the required number of centers.
     
-    '''
-    Pruning:
-        to return the prunned centers
-    Input: 
-          distance_matrix: the distance matrix of all the training samples
-          cover_radius: gives the radius a center can cover
-    Output: 
-        centers:
-            in the same form as the training set
-        Samples_to_center_matrix:
-            A matrix gives the distance between the samples and the centers, it 
-            can be used directly to calculate the design matrix            
-    '''
+    Don't know whether the above method works or not. Let's try it out.
+'''
+'''
+Define a step deletion function
+Input:
+    centers:
+        a list of centers
+    design_matrix:
+        a design matrix in with all the training samples as centers.
+        this design matrix is fixed and will be used again and again.
+        
+        Pay attention that the column number is one larger than the row number.
+        
+    observed_values:
+        a list, in the same order of the row of the design_matrix
+    reduce_number:
+        An integer, gives how many centers should be deleted from the centers.
+Output:
+    centers:
+        The length of this list is shorter than the input centers.
+'''
+def One_step_reduce_centers(centers, design_matrix, observed_values, parameter):
+    # Don't forget to add the last column of the design matrix, which is for the biss.
+    select = copy.deepcopy(centers)
+    select.append(-1)
+    new_design_matrix = design_matrix[:, select]
+    # To speed up the search for centers
+    ratio = 3000/len(centers)
+    termination = 10**(-3)
 
         
-        
-        
-
-
-        
-        
-        
-
-    def Formula_ridge_find_reg(self):
-        basis_function = self.basis_function
-        distance_mode = self.distance_mode
-        training = self.training
-        centers = self.centers
-        
-        REG_vector = [0.1, 1, 5, 10, 50, 60, 70, 80, 90, 100, 150]
-        Radi = [0.01, 0.04, 0.16, 0.64, 0.81, 1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 144, 225]
-#        GCV_vector = []
-        GCV_lowest = 1000000
-        reg_best = 0
-        
-        for radius in Radi:
-            
-            design_matrix = Design_matrix(training, centers, basis_function, radius, distance_mode)
-            
-            for reg in REG_vector:
-            
-                A = (design_matrix.T).dot(design_matrix) + np.eye(len(centers))*reg
-                
-                inverse_A = np.linalg.inv(A)
-                
-                W = inverse_A.dot((design_matrix.T)).dot(self.observed_contact)
-                
-                P = np.eye(len(training)) - design_matrix.dot(inverse_A).dot(design_matrix.T)
-                
-                GCV = len(self.training) * ((self.observed_contact).T).dot(P.dot(P)).dot(self.observed_contact)
-                
-                GCV /= (np.trace(P))**2
-                
-#                GCV_vector.append(GCV)
-                
-                if GCV <= GCV_lowest:
-                    GCV_lowest = GCV
-                    reg_best = reg
-                    self.radius = radius
-                    self.params['W'] = W
-        
-        self.GCV_lowest = GCV_lowest
-        self.reg_best = reg_best
-            
-#        plt.title('GCV Vs cut REG')
-#        plt.xlabel('REG')
-#        plt.ylabel('GCV')
-#        plt.plot(REG_vector, GCV_vector)
-#        plt.show()
-#        plt.close() 
-        
-    '''
-     predictions:
-         are given in the form of [[[1, 2], [6, 8]], ...]
-         1, 2 are the predicted centers that the Ab belong to, 6, 8 are the predicted number
-         of contact.
-    '''
-    def Formula_ridge_predict_Ab(self):
-        W = self.params['W']
-        testing = self.testing
-        centers = self.centers
-        distance_mode = self.distance_mode
-        basis_function = self.basis_function
-        radius = self.radius
-        positive_centers = []
-        for i in centers:
-            if i[2] > 0:
-                positive_centers.append(i)
-        self.positive_centers = positive_centers
-        top_n = math.floor(len(positive_centers) * 0.1)
-          
-        correct_prediction = 0
-        for test_Ag in testing:
-            # do prediction for test_Ag
-            # get the combination and the distance scores between the observed and the centers
-            test_Ag_positive_centers_scores = []
-            test_Ag_positive_centers = []
-            for i in range(len(positive_centers)) :
-                # conbine the test_Ag with different positive centers Ab, and the predicted contact 
-                # of the combination will be caltulated later
-                test_Ag_positive_centers.append([positive_centers[i][0], test_Ag[1]])
-                # calculate the distance between the observed Ab and the Ab of the centers
-                l_Ab = len(test_Ag[0])
-                Ab_seq1 = To_seq(test_Ag[0])
-                Ab_seq2 = To_seq(positive_centers[i][0])
-                distance = (1 - (4*l_Ab + aligner.score(Ab_seq1, Ab_seq2))/(15*l_Ab))
-                test_Ag_positive_centers_scores.append([i, distance])
-            # sort the test_Ag_positive_centers_scores, and chose the nearest center index
-            test_Ag_positive_centers_scores.sort(key = lambda x:x[1])
-            predicted_center = test_Ag_positive_centers_scores[0][0]
-                
-            design_matrix = Design_matrix(test_Ag_positive_centers, centers,
-                                          basis_function, radius, distance_mode)
-            # calculate the scores
-            scores = design_matrix.dot(W.T)
-            # indexed scores
-            indexed_scores = []
-            for i in range(len(scores)):
-                indexed_scores.append([i, scores[i]])
-            # sort the indexed scores to find the top n
-            indexed_scores.sort(key = lambda x:x[1])
-            #find the top_n prediction
-            top_n_predictions = []
-            for i in range(top_n):
-                top_n_predictions.append(indexed_scores[i][0])
-            # Check if the prediction is correct
-            if predicted_center in top_n_predictions:
-                correct_prediction += 1
-                
-        self.correct_rate =round(correct_prediction/len(testing), 2)
-        
-    def Add_negative_samples(self):
-        with open('negative_samples_RBFN_Mouse', 'r') as f:
-            negative_samples = json.load(f)
-
-        self.training.extend(negative_samples)
-        
-    def Feedforward_selection(self):
-        # pick the one with the largest frequency as the starting vectors
-        centers = []
-        training = copy.deepcopy(self.training)
-        sliced_training = []
-        for parepi in training:
-            sliced_training.append(parepi[:2])
-        container = []
-        for parepi in sliced_training:
-            frequency = 0 
-            for i in sliced_training:
-                if i == parepi:
-                    frequency += 1
-            container.append([parepi, frequency])
-        container.sort(key= lambda x:x[1], reverse = True)
-        n = container[0][1]
-        for parepi in container:
-            if parepi[1] == n and [parepi[0][0], parepi[0][1], 0, 0] not in centers:
-                centers.append([parepi[0][0], parepi[0][1], 0, 0])
-#        centers.append(training[0])
-
-                
-        # calculate A, P, W, reg, C for the centers selected above
-        reg = [0]; C = [0]
-        
-        basis_function = self.basis_function
-        distance_mode = self.distance_mode
-        training = self.training
-        radius = self.radius
-        observed_contact = self.observed_contact
-        
-        design_matrix = Design_matrix(training, centers, basis_function, radius, distance_mode)
-        
-        A = (design_matrix.T).dot(design_matrix) + np.eye(len(centers))*reg[-1]
-
-        inverse_A = np.linalg.inv(A)
-        
-        W = inverse_A.dot((design_matrix.T)).dot(observed_contact)
-        
-        P = np.eye(len(training)) - design_matrix.dot(inverse_A).dot(design_matrix.T)
-        
-        C_update =  len(training) * ((observed_contact).T).dot(P.dot(P)).dot(observed_contact)
-                
-        C_update  /= (np.trace(P))**2
-        
-        C.append(C_update)
-        
-        reg_update = (observed_contact.T).dot(P.dot(P.T)).dot(observed_contact)*(np.trace(inverse_A))
-        reg_update /= (W.T).dot(inverse_A).dot(W)*(np.trace(P))
-        reg[0] = reg_update
-        
-        # do the iteration
-        improve_all = [C_update]
-        for i in range(len(training)):
-            for parepi in training:
-                largest_improve = -1000
-                if parepi not in centers:
-                    # new column in the design matrix
-                    hm = Design_matrix(training, [parepi], basis_function, radius, distance_mode)
-                    #update P first
-                    delta = reg[-1] + (hm.T).dot(P).dot(hm)
-                    temp_P = P - P.dot(hm).dot(hm.T).dot(P)/delta
+    parameter, loss = Train_RBFN_BFGS(new_design_matrix, observed_values, rho=0.9, c = 1e-3, termination=termination,\
+                                      parameter_inheritance = True, parameter=parameter)
+    coeff = parameter['coeff']
+    # match the coeff up with the index of the centers
     
-                    # update Cost, find the improvement
-                    C_update =  len(training) * ((observed_contact).T).dot(temp_P.dot(temp_P.T)).dot(observed_contact)
-                    C_update  /= (np.trace(temp_P))**2
-                    improve = C[-1] - C_update
-                    if improve > largest_improve:
-                        largest_improve = improve
-                        appended_center = parepi
-                        best_hm = hm
-                        best_P = temp_P
-                        best_delta = delta
-                        
-            # give a conditon to abort the loop 
-#            if largest_improve <= 0:
-#                break
-            # update the chosen center and related parameters
-            centers.append(appended_center)
-            # append the improve
-            improve_all.append(largest_improve)
-            # delta
-            delta = best_delta
-            #Calculate a beta
-            beta = inverse_A.dot(design_matrix.T).dot(hm)
-            beta = np.vstack((beta, -1*np.ones((1 ,1))))
-            # update design matrix
-            hm = best_hm
-            design_matrix =  np.hstack((design_matrix, hm))
-            # updata P
-            P = best_P
-            # update the inverse_A
-            # Enlarge the dimensions by 1
-            (row_n, col_n) = np.shape(inverse_A)
-            empty_col = np.zeros((row_n, 1))
-            empty_row = np.zeros((1, col_n+1))
-            inverse_A = np.hstack((inverse_A, empty_col))
-            inverse_A = np.vstack((inverse_A, empty_row))
-            # do the update 
-            inverse_A += beta.dot(beta.T)/delta  
-            # update reg
-            W = inverse_A.dot(design_matrix.T).dot(observed_contact)
-            denominator = (W.T).dot(inverse_A).dot(W)*np.trace(P)
-            numerator = (observed_contact.T).dot(P).dot(P.T).dot(observed_contact) 
-            multiplier = np.trace(inverse_A - reg[-1]* (inverse_A.dot(inverse_A.T)))
-            numerator *= multiplier
-            reg.append( numerator/denominator)
+    coeff_list = np.abs(coeff)
 
-            
-        #load the results
-            self.forward_centers = centers
-            self.forward_improve_all = improve_all
-            self.forward_reg = reg
-            self.forward_design_matrix = design_matrix
-            self.forward_W = W
-            
-            if len(centers) == math.floor(len(training) * 0.05):
-                break
-                
-                
-                
-      
-            
-                
-        
-        
-               
-            
-            
-  
-        
-#        for parepi in testing:
-#            # find the top n predictions
-               
-        
+    match_up = []
+    for i in range(len(centers)):
+        match_up.append([centers[i], coeff_list[i], i])
+    # sort the match up according to the value of coeff
+    match_up.sort(key = lambda x:x[1])
+    # Remove the first one
+    to_be_removed = match_up[0]
+    # Remove the corresponding value from the center and the coeff
+    centers.remove(to_be_removed[0])
+    removed_coeff = coeff[to_be_removed[2], 0]
+    coeff = np.delete(coeff, [to_be_removed[2]])
+    coeff = coeff.reshape((-1, 1))
+    # Return the parameter for further traiing and removed coeff value for control
+    # and the centers for further deletion
+    parameter['coeff'] = coeff
+    parameter['reg'] = np.ones((len(coeff), 1))
+    
+    return centers, parameter, removed_coeff
+    
 
-#    def Loss(self, reg = 1):
-#        W = self.params['W']
-#        b = self.params['b']
-#        distance_function = self.distance_function
-#        training = self.training
-#        centers = self.centers
-#        design_matrix = np.zeros((len(training), len(centers)))
-#        for (i, j), value in np.ndenumerate(design_matrix):
-#            design_matrix[i, j] = distance_function(training[i][0], centers[i][0], training[i][1], centers[i][1])
-#        self.design_matrix = design_matrix
-#        
-#        predicted_value = design_matrix.dot(W)
-#        loss = 
-#        
-#        pass
-#        
-#    def Train(self):
-#        W = self.params['W']
-#
-#        
-#        pass
-# Import the data
-########################################################################################
-######################################################################################
-os.chdir("/home/leo/Documents/Database/Pipeline/Ready_2_2_1_1")
-#os.listdir()
-
-
-with open('training_2_2_1_1_RBFN_Mouse', 'r') as f:
-    training = json.load(f)
-with open('testing_2_2_1_1_Mouse', 'r') as f:
-    testing = json.load(f)
-
-training[:66]
-testing[:66]
-
-'''
-Change the contact into 1 or zero, 1 means they form a core, 0 means they can not {'rate_positive': 0.528,
- 'rate_negative': 0.525,
- 'truncated_rate_positive': 0.663,
- 'truncated_rate_negative': 0.637}
-form a core.
-'''
-new_training = []
-for parepi in training:
-    new_training.append([parepi[0], parepi[1], 1, parepi[3]])
-new_testing = []
-for parepi in testing:
-    new_testing.append([parepi[0], parepi[1], 1, parepi[3]])
-new_training[:6]
-len(new_training)
-new_testing[:6]
-#####################################################################################
-######################################################################################
-
-rbfn = RBFN(training,testing, basis_function= 'Markov', distance_mode = 'Multiplication_distance')
-rbfn.Centers_from_NewDataAnalysis(center_mode='positive_only')
-#rbfn.Pruning(delta= -0.2)
-len(rbfn.centers)
-#for i in [x*0.05 for x in range(21)]:
-#    rbfn.Pruning(delta = i)
-#    print(len(rbfn.centers))
-rbfn.Formula_ridge_find_reg()
-rbfn.GCV_lowest
-rbfn.reg_best
-rbfn.radius
-rbfn.Formula_ridge_predict_Ab()
-rbfn.correct_rate
-###########################################################################
-'''
-This block is to do forward selection, it is a little bit slow, need to be polished 
-further.
-'''
-##############################################################################
-'''
-Do prediction by using different forms of data, adding negative samples.
-'''
-#rbfn.Add_negative_samples()
-len(rbfn.training)
-augmented_training = rbfn.training
-augmented_training[:6]
-augmented_training[-6:-1]
-len(augmented_training)
-rbfn = RBFN(augmented_training, new_testing, basis_function= 'Markov', distance_mode = 'Multiplication_distance')
-rbfn.Centers_from_NewDataAnalysis(center_mode = 'positive_only')
-len(rbfn.centers)
-rbfn.Formula_ridge_find_reg()
-rbfn.GCV_lowest
-rbfn.reg_best
-rbfn.radius
-rbfn.Formula_ridge_predict_Ab()
-rbfn.correct_rate
+import numpy as np
+a = np.arange(-3, 5)
+a = a.reshape((-1, 1))
+a.flatten().tolist()
+a
+b = [1, 3]
+select = copy.deepcopy(b)
+select.append(-1)
+c = a[:, select]
+c
+b
+a
+select
+np.delete(a, [1])
+d = [-1, 0, 2]
+np.abs(a)
+a
 ###############################################################################
 
+'''
+Remove the duplicates before removing the centers
+'''
+def Remove_duplicates(training_set):
+    centers = []
+    pure_parepi = []
+    for i in range(len(training_set)):
+        parepi = training_set[i]
+        if [parepi[0], parepi[1]] not in pure_parepi:            
+            pure_parepi.append([parepi[0], parepi[1]])
+            centers.append(i)
+    return centers
+
+centers = Remove_duplicates(training_set)
+
+#############################################################
+
+'''
+Input:
+    control_coeff:
+        float, remove all the centers with coeff larger than control_coeff
+'''
+
+def Coeff_select_centers(parameter,centers, training_set, design_matrix, observed_values, control_coeff, centers_inherit = False):
+    # Initiate teh centers and teh removed_coeff
+    if not centers_inherit:
+        centers = Remove_duplicates(training_set)
+        ncol = len(centers) + 1
+        # Set the starting point
+        coeff = np.zeros((ncol,1))
+        parameter = {}
+        parameter['coeff'] = coeff
+        #The reg should not be negative. It is better that reg > delta, a small positive number
+        reg = np.ones((ncol,1))  
+        parameter['reg'] = reg
+
+    #Make sure to add the last column
+    removed_coeff = 0
+    while abs(removed_coeff) < control_coeff:
+        centers, parameter, removed_coeff = One_step_reduce_centers(centers, design_matrix, observed_values, parameter)
+        print(removed_coeff, '   ', len(centers))
+    cutoff_coeff = removed_coeff
+#    print('cutoff coeff = d%', cutoff_coeff)# Here is to monitor the process.
+    
+    return centers, parameter, cutoff_coeff
+##################################################################################################################
+for i in range(1):   
+    centers, parameter, cutoff_coeff = Coeff_select_centers(parameter, centers, training_set, design_matrix,\
+                                                            observed_values, control_coeff=1e-1, centers_inherit = True)
+centers, parameter, cutoff_coeff = Coeff_select_centers(parameter, centers, training_set, design_matrix,\
+                                                        observed_values, control_coeff=1e-1, centers_inherit = False)
+len(centers)
+centers
+testing_data = copy.deepcopy(positive_testing_set)
+testing_data.extend(negative_testing_set)
+len(testing_data)
+testing_data[:6]
+testing_data[-6:-1]
+testing_design_matrix = Generate_testing_design_matrix(testing_data, centers,\
+                                                       training_set, mode = 'Multiplication', basis_function = 'Markov')
+testing_design_matrix.shape
+rate = Prediction(testing_data, parameter, testing_design_matrix)    
+rate        
+Concrete_prediction_rate(positive_testing_set, centers, positive_training_set, training_set,\
+                             mode = 'Multiplication', basis_function = 'Markov')
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+len(positive_training_set)
+n = 0
+for i in centers:
+    if i <= len(positive_training_set)-1:
+        n +=1
+n
 
