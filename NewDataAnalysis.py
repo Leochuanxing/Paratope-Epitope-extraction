@@ -1,5 +1,7 @@
+
+##########################################################
 '''
-This file is to analyse the data generated from GetDataForAnalysis
+Import modules
 '''
 import random
 import numpy as np
@@ -7,29 +9,7 @@ import os
 import json
 import math
 import copy
-##########################################################
-'''
-Load the files
-'''
-
-os.chdir("/home/leo/Documents/Database/Pipeline/Ready_2_2_0_1")
-os.listdir()
-
-
-with open('training_2_2_1_1', 'r') as f:
-    training = json.load(f)
-with open('testing_2_2_1_1', 'r') as f:
-    testing = json.load(f)
-with open('negative_centers_5', 'r') as f:
-    negative_samples = json.load(f)
-
-len(training)    
-len(testing)
-testing[:18]
-training[:6]
-negative_samples[:6]
-############################################################
-    
+############################################################   
            
 '''
 First define some functions to process the data
@@ -78,11 +58,12 @@ def Distance_matrix(seq_list):
 #    max_score = -1000
 #    min_score = 1000
     for i in range(len(seq_list)):
-        for j in range(len(seq_list)):
+        for j in range(i, len(seq_list)):
             if seq_list[i] != seq_list[j]:
                 distance_matrix[i, j] =1 - (4*l + aligner.score(seq_list[i], seq_list[j]))/(15*l)#Global
 #                 distance_matrix[i, j] =1 -  aligner.score(seq_list[i], seq_list[j])/(15*l)#Local
 #                distance_matrix[i, j] = - aligner.score(seq_list[i], seq_list[j])#Unnormalized
+                distance_matrix[j, i] = distance_matrix[i, j]
             else:
                 distance_matrix[i, j] = 0
                 
@@ -116,17 +97,12 @@ def Hcluster(distance_matrix):
     from scipy.spatial.distance import squareform
     
     condenced_distance_matrix = squareform(distance_matrix)
-    unordered_Z = linkage(condenced_distance_matrix, method = 'complete')
+    unordered_Z = linkage(condenced_distance_matrix, method = 'single')
     Z = optimal_leaf_ordering(unordered_Z, condenced_distance_matrix)
     
     return Z
 
-#from scipy.spatial.distance import squareform  
-#condenced = squareform(tryout.all_Ab_distance_martix)
-#len(condenced)
-#np.shape(tryout.all_Ag_distance_martix)
-#len(tryout.Ab_cluster_ids)
-#len(tryout.Ag_cluster_ids)     
+  
 '''
 Show_elbow:
     To find the best cutting score
@@ -152,16 +128,7 @@ def Show_elbow(tree):
                 n = cut[i][0]
         n_clusters.append(n)
         n_clusters_heights.append([n, h])
-        
-#    from matplotlib import pyplot as plt
-#    
-#    
-#    plt.title('clusters Vs cut distance')
-#    plt.xlabel('cut distance')
-#    plt.ylabel('n_clusters')
-#    plt.plot(heights, n_clusters)
-#    plt.show()
-#    plt.close()   
+          
     
     return  n_clusters_heights
 
@@ -244,13 +211,7 @@ def Get_cut_clusters_ids(h_cluster, n_clusters):
                 subcluster.append(j)
         clusters.append(subcluster)
     return clusters
-#from scipy.cluster.hierarchy import cut_tree
-#from scipy.cluster.hierarchy import linkage
 
-#z = linkage(condenced, method='complete')
-#cut1 = cut_tree(z, n_clusters=50)
-#len(cut1)
-#cut1[10:26]
 '''
 The returned value is the cluster index
 Input: 
@@ -307,9 +268,7 @@ def Assign_to_cluster(clusters, element, distance_matrix, mode = 'complete', top
             
     return assigned_cluster
 
-#a = [[1, 2], [2, 1]]
-#a.sort(key = lambda x:x[1])
-#a
+
 '''
 Prediction:
      For a given x, predict y, if the prediction is correct, the returned value is 1, otherwise, the returned value is 0
@@ -609,9 +568,6 @@ class DataAnalysis(object):
             n += Prediction(parameter)
             
         return round(n/len(self.testing_data), 2) 
-    
-    def Inter_intra_cluster_distance():
-        pass   
 
     
 
@@ -619,29 +575,7 @@ class DataAnalysis(object):
     def Selected_support_predcition(self, top_n_clusters_support=3, n_prediction = 3, mode = 'Ag_to_Ab',
                                     x_method = 'complete', y_method = 'average'):
 
-        support_Ag_dict = {}
-        for key, value in self.Ag_in_Ab_cluster_ids.items():
-            support_Ag_dict[key]  = []
-            for i in range(min(top_n_clusters_support, len(value))):
-                support_Ag_dict[key].extend(value[i])
-                
-        support_Ab_dict = {}
-        for key, value in self.Ab_in_Ag_cluster_ids.items():
-            support_Ab_dict[key]  = []
-            for i in range(min(top_n_clusters_support, len(value))):
-                support_Ab_dict[key].extend(value[i])
-                
-        support_Ag = [0]*len(self.Ab_cluster_ids)
-        for i in range(len(support_Ag)):
-            for key, value in support_Ag_dict.items():
-                if key == tuple(self.Ab_cluster_ids[i]):
-                    support_Ag[i] = value
-                    
-        support_Ab = [0]*len(self.Ag_cluster_ids)
-        for i in range(len(support_Ab)):
-            for key, value in support_Ab_dict.items():
-                if key == tuple(self.Ag_cluster_ids[i]):
-                    support_Ab[i] = value
+
                     
         parameter = {}
         parameter['len_training_data'] = len(self.training_data)
@@ -651,158 +585,28 @@ class DataAnalysis(object):
         parameter['n_prediction'] = n_prediction
         parameter['all_Ab_distance_martix'] = self.all_Ab_distance_martix
         parameter['all_Ag_distance_martix'] = self.all_Ag_distance_martix
-        parameter['support_Ab'] = support_Ab
-        parameter['support_Ag'] = support_Ag
+        parameter['support_Ab'] = self.Ag_cluster_ids
+        parameter['support_Ag'] = self.Ab_cluster_ids
         parameter['mode'] = mode
         parameter['x_method'] = x_method
         parameter['y_method'] = y_method        
         
         return Meaningfull_prediction_support(parameter)
     
-    def Generate_center_ids_for_RBFN(self):
-        RBFN_centers_Ab_in_Ag = []
-        for keys, value in self.Ab_in_Ag_cluster_ids.items():
-            Ab = value[0][0]
-            RBFN_centers_Ab_in_Ag.append(self.training_data[Ab])
-        self.RBFN_centers_Ab_in_Ag = RBFN_centers_Ab_in_Ag
-
-        RBFN_centers_Ag_in_Ab = []
-        for keys, value in self.Ag_in_Ab_cluster_ids.items():
-            Ag = value[0][0]
-            RBFN_centers_Ag_in_Ab.append(self.training_data[Ag])
-        self.RBFN_centers_Ag_in_Ab = RBFN_centers_Ag_in_Ab                
+               
             
 ##################################################################################
 ##################################################################################
 
 
-tryout =  DataAnalysis(training, testing)                
-tryout.Calculate_distance_matrix()            
-tryout.Get_hierarchical_clusters() 
-tryout.Show_elbow()
-tryout.Cut_n_clusters(lower_n_cluster=20, upper_n_cluster=100)
-tryout.Get_cluster_ids()
-len(tryout.Ab_cluster_ids)
-len(tryout.Ag_cluster_ids)
-tryout.Cluster_within_cluter(min_cluster_number=3, max_cluster_number=10)
-keys1 = list(tryout.Ab_in_Ag_cluster_ids.keys())
-keys2 = list(tryout.Ag_in_Ab_cluster_ids.keys())
-len(keys1)
-len(keys2)
-len(tryout.Ab_cluster_ids)
-tryout.Selected_support_predcition(top_n_clusters_support=15, 
-                                   n_prediction= math.floor(0.1 * len(tryout.Ag_cluster_ids)),
-                                   mode='Ag_to_Ab', x_method='average', y_method='single')
-tryout.Selected_support_predcition(top_n_clusters_support=15, 
-                                   n_prediction= math.floor(0.1 * len(tryout.Ab_cluster_ids)),
-                                   mode='Ab_to_Ag', x_method='average', y_method='single')
-tryout.Generate_center_ids_for_RBFN()
-len(tryout.RBFN_centers_Ab_in_Ag)
-len(tryout.RBFN_centers_Ag_in_Ab)
 
-with open('Ab_Ag_centers_from_NewDataAnalysis', 'w') as f:
-    json.dump(tryout.Ab_Ag_centers, f)
+
+
  
 #################################################################################
 ###############################################################################
-'''
-Try to use the paires with lower contact number, but it does not work well.
-'''
-#len(negative_samples)
-#sliced_testing = testing[:30]
-#sliced_testing
-#negative_centers = DataAnalysis(negative_samples, sliced_testing)  
-#negative_centers.Calculate_distance_matrix()            
-#negative_centers.Get_hierarchical_clusters() 
-#negative_centers.Show_elbow()
-#negative_centers.Cut_n_clusters(lower_n_cluster=10, upper_n_cluster=20)
-#negative_centers.Get_cluster_ids()
-#len(negative_centers.Ab_cluster_ids)
-#len(negative_centers.Ag_cluster_ids)
-#negative_centers.Cluster_within_cluter(min_cluster_number=3, max_cluster_number=10)  
-#negative_centers.Selected_support_predcition(top_n_clusters_support=15, 
-#                                   n_prediction= math.floor(0.1 * len(negative_centers.Ag_cluster_ids)),
-#                                   mode='Ag_to_Ab', x_method='average', y_method='single')
-#negative_centers.Generate_center_ids_for_RBFN()
-#len(negative_centers.RBFN_centers_Ab_in_Ag)
-#len(negative_centers.RBFN_centers_Ag_in_Ab)    
-    
-#################################################################################
-####################################################################################    
-    
-    
-#tryout.Ab_in_Ag_cluster_ids[keys1[40]]
-#tryout.Ag_in_Ab_cluster_ids[keys2[40]]
-# 
-# simple check
-#def simple_check(dictionary, cluster):
-#    for key, value in dictionary.items():
-#        list_key = list(key)
-#        list_key.sort
-#        ids = []
-#        for i in value:
-#            ids.extend(i)
-#        ids.sort()
-#        if ids == list_key and ids in cluster:
-#            print('Good')
-#        else:
-#            print('Not good')
-
-#simple_check(tryout.Ab_in_Ag_cluster_ids, tryout.Ag_cluster_ids)
-#simple_check(tryout.Ag_in_Ab_cluster_ids, tryout.Ab_cluster_ids)
-#tryout.Ab_in_Ag_cluster_ids[keys1[0]]
-#tryout.Ag_cluster_ids[0]
-#tryout.Ab_in_Ag_cluster_ids[keys1[-1]]
-#tryout.Ag_cluster_ids[-1]
-#tryout.Ag_in_Ab_cluster_ids[keys2[80]]
-#n = 0
-#for i in keys1:
-#    n += len(i)
-#n
-#m = 0
-#for i in keys2:
-#    m += len(i)
-#m   
-
-#keys1[:2]
-#keys2[:2]
-#tryout.Ab_cluster_ids[90]
-#tryout.Ag_cluster_ids[:2]
-#len(tryout.Ab_cluster_ids)
-
-#support_Ag_dict = {}
-#for key, value in tryout.Ag_in_Ab_cluster_ids.items():
-#    support_Ag_dict[key]  = []
-#    for i in range(min(3, len(value))):
-#        support_Ag_dict[key].extend(value[i])
-#support_Ag = [0]*len(tryout.Ab_cluster_ids)
-#for i in range(len(support_Ag)):
-#    for key, value in support_Ag_dict.items():
-#        if key == tuple(tryout.Ab_cluster_ids[i]):
-#            support_Ag[i] = value
-#
-#
-#keys = list(support_Ag_dict.keys())
-#tryout.Ag_in_Ab_cluster_ids[keys[8]]
-#support_Ag_dict[keys[8]]
-#support_Ag[8]
-#tryout.Ab_cluster_ids[8]
-
-
-
-
-
-
-
-
-
-
-
-
-
-#tryout.Ag_to_Ab_prediction_correct_rate(top_x_n_cluster=1, top_y_n_cluster=2)
-#tryout.Ab_to_Ag_prediction_correct_rate(top_x_n_cluster=1, top_y_n_cluster=2)
-
+ 
+  
 
 
 
@@ -813,95 +617,148 @@ Try to use the paires with lower contact number, but it does not work well.
 '''
 Create a baseline by shuffling the data.
 '''
-
-def Shuffle(training_data):#permuataion method Just mass up with the training data, see how the prediction performs
-    import copy
-    data = copy.deepcopy(training_data)
-    Ab_data = []
-    for parepi in data:
-        Ab_data.append(parepi[0])
-        
-    random.shuffle(Ab_data)
-    
-    for i in range(len(data)):
-        data[i][0] = Ab_data[i]
-        
-    return data
-
-def Random_sample(training_data, length):
-    TripleSingle =  [['TYR', 'Y'], ['LYS', 'K'],['ASP', 'D'], ['ASN', 'N'], ['TRP', 'W'], ['PHE', 'F'], ['GLN', 'Q'],
-                    ['GLU', 'E'], ['PRO', 'P'], ['GLY', 'G'], ['THR', 'T'],['SER', 'S'], ['ARG', 'R'], ['HIS', 'H'],
-                    ['LEU', 'L'], ['ILE', 'I'], ['CYS', 'C'], ['ALA', 'A'], ['MET', 'M'], ['VAL', 'V']]
-    
-    random_training = []
-    for i in range(len(training_data)):
-        rsample = []
-        for j in range(length):
-            rsample.append(random.sample(TripleSingle, 1)[0][0])
-        random_training.append([rsample, training_data[i][1], training_data[i][2], training_data[i][3]])       
-    return random_training 
-
-r_training = Random_sample(training, length = 2)        
-r_training[:6]
-tryout.training_data[:6]
-
-shuffled = Shuffle(training)
-training[:6]
-shuffled[:6]
-
-
-Ag_to_Ab = []
-Ab_to_Ag = []
-for i in range(6):
-    r_training = Shuffle(training) 
-    
-    baseline = DataAnalysis(r_training, testing)                
-    baseline.Calculate_distance_matrix()            
-    baseline.Get_hierarchical_clusters() 
-    baseline.Show_elbow()
-    baseline.Cut_n_clusters(lower_n_cluster=20, upper_n_cluster=100)
-    baseline.Get_cluster_ids()
-    baseline.Cluster_within_cluter(min_cluster_number=3, max_cluster_number=10)
-#    baseline = list(tryout.Ab_in_Ag_cluster_ids.keys())
-#    baseline = list(tryout.Ag_in_Ab_cluster_ids.keys())
-    #baseline.Ag_to_Ab_prediction_correct_rate(top_x_n_cluster=1, top_y_n_cluster=2)
-    
-    Ag_to_Ab.append(baseline.Selected_support_predcition(top_n_clusters_support=15,
-                                   n_prediction= math.floor(0.1 * len(tryout.Ag_cluster_ids)),
-                                   mode='Ag_to_Ab', x_method='average', y_method='single'))
-    Ab_to_Ag.append(baseline.Selected_support_predcition(top_n_clusters_support=15, 
-                                  n_prediction= math.floor(0.1 * len(tryout.Ab_cluster_ids)),
-                                   mode='Ab_to_Ag', x_method='average', y_method='single'))
-
-np.average(Ag_to_Ab)
-np.average(Ab_to_Ag)
+#
+#def Shuffle(training_data):#permuataion method Just mass up with the training data, see how the prediction performs
+#    import copy
+#    data = copy.deepcopy(training_data)
+#    Ab_data = []
+#    for parepi in data:
+#        Ab_data.append(parepi[0])
+#        
+#    random.shuffle(Ab_data)
+#    
+#    for i in range(len(data)):
+#        data[i][0] = Ab_data[i]
+#        
+#    return data
+#
+#def Random_sample(training_data, length):
+#    TripleSingle =  [['TYR', 'Y'], ['LYS', 'K'],['ASP', 'D'], ['ASN', 'N'], ['TRP', 'W'], ['PHE', 'F'], ['GLN', 'Q'],
+#                    ['GLU', 'E'], ['PRO', 'P'], ['GLY', 'G'], ['THR', 'T'],['SER', 'S'], ['ARG', 'R'], ['HIS', 'H'],
+#                    ['LEU', 'L'], ['ILE', 'I'], ['CYS', 'C'], ['ALA', 'A'], ['MET', 'M'], ['VAL', 'V']]   
+#    random_training = []
+#    for i in range(len(training_data)):
+#        rsample = []
+#        for j in range(length):
+#            rsample.append(random.sample(TripleSingle, 1)[0][0])
+#        random_training.append([rsample, training_data[i][1], training_data[i][2], training_data[i][3]])       
+#    return random_training 
+#
+#r_training = Random_sample(training, length = 2)        
+#
+#
+#
+#
+#Ag_to_Ab = []
+#Ab_to_Ag = []
+#for i in range(2):
+#    r_training = Random_sample(training, 3) 
+#    
+#    baseline = DataAnalysis(r_training, testing)                
+#    baseline.Calculate_distance_matrix()            
+#    baseline.Get_hierarchical_clusters() 
+#    baseline.Show_elbow()
+#    baseline.Cut_n_clusters(lower_n_cluster=20, upper_n_cluster=5000)
+#    baseline.Get_cluster_ids()
+#    
+#    Ag_to_Ab.append(baseline.Selected_support_predcition(top_n_clusters_support=15,
+#                                   n_prediction= math.floor(0.1 * len(tryout.Ag_cluster_ids)),
+#                                   mode='Ag_to_Ab', x_method='single', y_method='single'))
+#    Ab_to_Ag.append(baseline.Selected_support_predcition(top_n_clusters_support=15, 
+#                                  n_prediction= math.floor(0.1 * len(tryout.Ab_cluster_ids)),
+#                                   mode='Ab_to_Ag', x_method='single', y_method='single'))
+#
+#np.average(Ag_to_Ab)
+#np.average(Ab_to_Ag)
+#Ab_to_Ag
+#results = []
+#with open('Results', 'w') as f:
+#    json.dump(results, f)
+#def Results_collect(lower_contact_limit,x_method, y_method, top_n_clusters_support, 
+#                    mode1, correct_rate1, baseline1, mode2,correct_rate2, baseline2):
+#    with open('Results', 'r') as f:
+#        results = json.load(f)
+#    results.append([lower_contact_limit,  x_method, y_method, top_n_clusters_support, 
+#                    mode1, correct_rate1, baseline1, mode2, correct_rate2, baseline2])
+#    with open('Results', 'w') as f:
+#        json.dump(results, f)
+#    return print('Results saved')
+#
+#Results_collect(lower_contact_limit=9, x_method='single', y_method='single', top_n_clusters_support=15,
+#                mode1='Ag_to_Ab', correct_rate1=0.72, baseline1 = 0.11, mode2='Ab_to_Ag', correct_rate2=0.78, baseline2=0.77)
+#with open('Results', 'r') as f:
+#    results = json.load(f)
+#results
 ########################################################################################
 #################################################################################
 '''
-Use the above baseline to generate negative centers is a relatively good choice.
+Define a main function, which gives what I want in one run
 '''
-baseline.Generate_center_ids_for_RBFN()
-len(baseline.RBFN_centers_Ab_in_Ag)
-len(baseline.RBFN_centers_Ag_in_Ab)
-baseline.RBFN_centers_Ab_in_Ag[:6]
-negative_centers_Ab_in_Ag = []
-for parepi in baseline.RBFN_centers_Ab_in_Ag:
-    negative_centers_Ab_in_Ag.append([parepi[0], parepi[1], 0, parepi[3]])
-negative_centers_Ab_in_Ag[:6]
-len(negative_centers_Ab_in_Ag)
+def main():
+    '''
+    This file is to analyse the data generated from GetDataForAnalysis
+    '''
+    ##########################################################
+    
+    os.chdir("/home/leo/Documents/Database/Pipeline/Ready_2_2_1_1")
+    
+    
+    with open('training_2_2_1_1_all_jump', 'r') as f:
+        training = json.load(f)
+    with open('testing_2_2_1_1_all_jump', 'r') as f:
+        testing = json.load(f)
+    with open('negative_samples_2_2_1_1', 'r') as f:
+        negative_samples = json.load(f)
+
 ####################################################################################
-###################################################################################
-'''
-Generate the center for RBFN and save it.
-'''
-RBFN_centers_Ab_in_Ag = []
-for i in tryout.RBFN_centers_Ab_in_Ag:
-    RBFN_centers_Ab_in_Ag.append(i)
-for j in negative_centers_Ab_in_Ag:
-    RBFN_centers_Ab_in_Ag.append(j)
-len(RBFN_centers_Ab_in_Ag)
-RBFN_centers_Ab_in_Ag
+    tryout =  DataAnalysis(training, testing)                
+    tryout.Calculate_distance_matrix()            
+    tryout.Get_hierarchical_clusters() 
+    tryout.Show_elbow()
+    tryout.Cut_n_clusters(lower_n_cluster=20, upper_n_cluster=1000000)
+    tryout.Get_cluster_ids()
+    len(tryout.Ab_cluster_ids)
+    len(tryout.Ag_cluster_ids)
+    
+    Ag_to_Ab_rate = tryout.Selected_support_predcition(top_n_clusters_support=15, 
+                                       n_prediction= math.floor(0.1 * len(tryout.Ag_cluster_ids)),
+                                       mode='Ag_to_Ab', x_method='single', y_method='single')
+    Ab_to_Ag_rate = tryout.Selected_support_predcition(top_n_clusters_support=15,
+                                       n_prediction= math.floor(0.1 * len(tryout.Ab_cluster_ids)),
+                                       mode='Ab_to_Ag', x_method='single', y_method='single')
+    
+    baseline = DataAnalysis(negative_samples, testing)                
+    baseline.Calculate_distance_matrix()            
+    baseline.Get_hierarchical_clusters() 
+    baseline.Show_elbow()
+    baseline.Cut_n_clusters(lower_n_cluster=20, upper_n_cluster=5000)
+    baseline.Get_cluster_ids()
+    
+    baseline_Ag_to_Ab_rate = baseline.Selected_support_predcition(top_n_clusters_support=15,
+                                   n_prediction= math.floor(0.1 * len(baseline.Ag_cluster_ids)),
+                                   mode='Ag_to_Ab', x_method='single', y_method='single')
+    baseline_Ab_to_Ag_rate = baseline.Selected_support_predcition(top_n_clusters_support=15, 
+                                  n_prediction= math.floor(0.1 * len(baseline.Ab_cluster_ids)),
+                                   mode='Ab_to_Ag', x_method='single', y_method='single')
 
-with open('RBFN_centers_Ab_in_Ag', 'w') as f:
-    json.dump(RBFN_centers_Ab_in_Ag, f)
+    return ['Hierarchical clustering', 'Ag_to_Ab', len(tryout.Ag_cluster_ids), math.floor(0.1 * len(tryout.Ag_cluster_ids)),\
+            Ag_to_Ab_rate, 'Ab_to_Ag', len(tryout.Ab_cluster_ids), math.floor(0.1 * len(tryout.Ab_cluster_ids)), Ab_to_Ag_rate],\
+            ['Hierarchical clustering baseline', 'Ag_to_Ab', len(baseline.Ag_cluster_ids), math.floor(0.1 * len(baseline.Ag_cluster_ids)),\
+            baseline_Ag_to_Ab_rate, 'Ab_to_Ag', len(baseline.Ab_cluster_ids), math.floor(0.1 * len(baseline.Ab_cluster_ids)), baseline_Ab_to_Ag_rate]
+ ################################################################################################
 
+################################################################################################           
+if __name__ == '__main__':
+    Hcluster_results, baseline_results = main()
+    results={}
+    results['Hcluster'] = Hcluster_results
+    results['baseline'] = baseline_results
+    
+    os.chdir("/home/leo/Documents/Database/Pipeline/Ready_2_2_1_1")
+    with open ('Hcluster_results', 'w') as f:
+        json.dump(results, f)
+
+#os.chdir("/home/leo/Documents/Database/Pipeline/Ready_2_2_1_1")
+#with open ('Hcluster_results', 'r') as f:
+#    results = json.load(f)
+#results

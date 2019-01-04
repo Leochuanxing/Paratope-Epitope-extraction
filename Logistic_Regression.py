@@ -9,42 +9,12 @@ import os
 import json
 import math
 import copy
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 
 ###########################################################
-'''
-Import the data
-'''
-os.chdir("/home/leo/Documents/Database/Pipeline/Ready_2_2_1_1")
 
-with open('ready_2_2_1_1__cn_gate_1_all', 'r') as f:
-    data = json.load(f)
-len(data)
-    
-#with open('negative_samples', 'r') as f:
-#    negative_samples = json.load(f)
-#len(negative_samples)
-#negative_samples = random.sample(negative_samples, 1000)
-#len(negative_samples)
-#############################################################
-'''
-Generate the testing the samples and the indicator for the testing samples
-and the indicator for the testing samples.
-'''  
-def Generating_testing(positive_samples, negative_samples):
-    p = len(positive_samples)
-    tp = math.floor(p * 0.1)
-    testing_positive = random.sample(positive_samples, tp)
-    for i in testing_positive:
-        positive_samples.remove(i)
-        
-    n = len(negative_samples)    
-    tn = math.floor(n*0.1)
-    testing_negative = random.sample(negative_samples, tn)
-    for i in testing_negative:
-        negative_samples.remove(i)            
-    return positive_samples, negative_samples, testing_positive, testing_negative
+
 ####################################################################################################
     ###############################################################################################
 # Define  distances
@@ -91,7 +61,7 @@ def Addition_distance(Ab_seq1, Ab_seq2, Ag_seq1, Ag_seq2):
 '''
 This function should return the vectors required for the input of the Loss function
 '''
-def Similarity_matrix(testing_positive, testing_negative, positive_samples, negative_samples, percentage = 0.1):
+def Similarity_matrix(testing_positive, testing_negative, positive_samples, negative_samples):
     p = len(positive_samples)
     n = len(negative_samples)
     pp_matrix = np.zeros((p, p))
@@ -118,14 +88,19 @@ def Similarity_matrix(testing_positive, testing_negative, positive_samples, nega
     # Stack the above matrices
     matrix_positive = np.vstack((pp_matrix, np_matrix))
     matrix_negative = np.vstack((pn_matrix, nn_matrix))
-    # Calculator the vectors
-    sum_positive = np.sum(matrix_positive, axis=1, keepdims = True)
-    sum_negative = np.sum(matrix_negative, axis = 1, keepdims = True)
-    sum_all = np.hstack((sum_positive, sum_negative))
+#    # Calculator the vectors
+#    sum_positive = np.sum(matrix_positive, axis=1, keepdims = True)
+#    sum_negative = np.sum(matrix_negative, axis = 1, keepdims = True)
+#    sum_all = np.hstack((sum_positive, sum_negative))
     # Truncate 
     training_matrix = np.hstack((matrix_positive, matrix_negative))
-    number = math.floor((n+p) * percentage)
-    truncated_training_sum = Truncated(training_matrix, p, n, number)
+#    number = math.floor((n+p) * percentage)
+#    truncated_training_sum = Truncated(training_matrix, p, n, number)
+    truncate_package = {}
+    truncate_package['training_matrix'] = training_matrix
+    truncate_package['p'] = p
+    truncate_package['n'] = n
+
     
     # Create the training_indicator vector
     positive = np.ones((p, 1))
@@ -156,36 +131,38 @@ def Similarity_matrix(testing_positive, testing_negative, positive_samples, nega
             + aligner.score(To_seq(testing_negative[i][1]), To_seq(negative_samples[k][1]))
             
     # Calculator the vectors
-    testing_sum_pp = np.sum(testing_pp, axis=1, keepdims = True)
-    testing_sum_pn = np.sum(testing_pn, axis = 1, keepdims = True)
-    positive_testing_sum = np.hstack((testing_sum_pp, testing_sum_pn))
-
-    
-    testing_sum_np = np.sum(testing_np, axis=1, keepdims = True)
-    testing_sum_nn = np.sum(testing_nn, axis = 1, keepdims = True)
-    negative_testing_sum = np.hstack((testing_sum_np, testing_sum_nn))
-    
+#    testing_sum_pp = np.sum(testing_pp, axis=1, keepdims = True)
+#    testing_sum_pn = np.sum(testing_pn, axis = 1, keepdims = True)
+#    positive_testing_sum = np.hstack((testing_sum_pp, testing_sum_pn))
+#
+#    
+#    testing_sum_np = np.sum(testing_np, axis=1, keepdims = True)
+#    testing_sum_nn = np.sum(testing_nn, axis = 1, keepdims = True)
+#    negative_testing_sum = np.hstack((testing_sum_np, testing_sum_nn))
+#    
     # Truncated
-    number = math.floor((p+n) * percentage)
+#    number = math.floor((p+n) * percentage)
     positive_testing_matrix = np.hstack((testing_pp, testing_pn))
     negative_testing_matrix = np.hstack((testing_np, testing_nn))
-    truncated_positive_testing_sum = Truncated(positive_testing_matrix, p, n, number)
-    truncated_negative_testing_sum = Truncated(negative_testing_matrix, p, n, number)
+#    truncated_positive_testing_sum = Truncated(positive_testing_matrix, p, n, number)
+#    truncated_negative_testing_sum = Truncated(negative_testing_matrix, p, n, number)
+    truncate_package['positive_testing_matrix'] = positive_testing_matrix
+    truncate_package['negative_testing_matrix'] = negative_testing_matrix
     
     # Pack all the returned value in a dictionary
-    package = {}
-    package['training_sum'] = sum_all
-    package['training_indicator'] = training_indicator
-    package['positive_testing_sum'] = positive_testing_sum
-    package['negative_testing_sum'] = negative_testing_sum
-    package['truncated_positive_testing_sum'] = truncated_positive_testing_sum
-    package['truncated_negative_testing_sum'] = truncated_negative_testing_sum
-    package['truncated_training_sum'] = truncated_training_sum
+#    package = {}
+#    package['training_sum'] = sum_all
+#    package['training_indicator'] = training_indicator
+#    package['positive_testing_sum'] = positive_testing_sum
+#    package['negative_testing_sum'] = negative_testing_sum
+#    package['truncated_positive_testing_sum'] = truncated_positive_testing_sum
+#    package['truncated_negative_testing_sum'] = truncated_negative_testing_sum
+#    package['truncated_training_sum'] = truncated_training_sum
 
            
-    return package
+    return training_indicator, truncate_package
 
-def Distance_matrix(testing_positive, testing_negative, positive_samples, negative_samples, percentage):
+def Distance_matrix(testing_positive, testing_negative, positive_samples, negative_samples):
     p = len(positive_samples)
     n = len(negative_samples)
     pp_matrix = np.zeros((p, p))
@@ -213,14 +190,17 @@ def Distance_matrix(testing_positive, testing_negative, positive_samples, negati
     matrix_positive = - np.vstack((pp_matrix, np_matrix))
     matrix_negative = - np.vstack((pn_matrix, nn_matrix))
     # Calculator the vectors
-    sum_positive = np.sum(matrix_positive, axis=1, keepdims = True)
-    sum_negative = np.sum(matrix_negative, axis = 1, keepdims = True)
-    sum_all = np.hstack((sum_positive, sum_negative))
+#    sum_positive = np.sum(matrix_positive, axis=1, keepdims = True)
+#    sum_negative = np.sum(matrix_negative, axis = 1, keepdims = True)
+#    sum_all = np.hstack((sum_positive, sum_negative))
     # Truncate 
     training_matrix = np.hstack((matrix_positive, matrix_negative))
-    number = math.floor((n+p) * percentage)
-    truncated_training_sum = Truncated(training_matrix, p, n, number)
-    
+#    number = math.floor((n+p) * percentage)
+#    truncated_training_sum = Truncated(training_matrix, p, n, number)
+    truncate_package = {}
+    truncate_package['training_matrix'] = training_matrix
+    truncate_package['p'] = p
+    truncate_package['n'] = n
 
     # Create the training_indicator vector
     positive = np.ones((p, 1))
@@ -256,34 +236,36 @@ def Distance_matrix(testing_positive, testing_negative, positive_samples, negati
     # Calculator the vectors
     testing_pp = - testing_pp
     testing_pn = -testing_pn
-    testing_sum_pp = np.sum(testing_pp, axis=1, keepdims = True)
-    testing_sum_pn = np.sum(testing_pn, axis = 1, keepdims = True)
-    positive_testing_sum = np.hstack((testing_sum_pp, testing_sum_pn))
+#    testing_sum_pp = np.sum(testing_pp, axis=1, keepdims = True)
+#    testing_sum_pn = np.sum(testing_pn, axis = 1, keepdims = True)
+#    positive_testing_sum = np.hstack((testing_sum_pp, testing_sum_pn))
     
     testing_np = - testing_np
     testing_nn = - testing_nn
-    testing_sum_np = np.sum(testing_np, axis=1, keepdims = True)
-    testing_sum_nn = np.sum(testing_nn, axis = 1, keepdims = True)
-    negative_testing_sum = np.hstack((testing_sum_np, testing_sum_nn))
+#    testing_sum_np = np.sum(testing_np, axis=1, keepdims = True)
+#    testing_sum_nn = np.sum(testing_nn, axis = 1, keepdims = True)
+#    negative_testing_sum = np.hstack((testing_sum_np, testing_sum_nn))
     
     # Truncated
-    number = math.floor((p+n) * percentage)
+#    number = math.floor((p+n) * percentage)
     positive_testing_matrix = np.hstack((testing_pp, testing_pn))
     negative_testing_matrix = np.hstack((testing_np, testing_nn))
-    truncated_positive_testing_sum = Truncated(positive_testing_matrix, p, n, number)
-    truncated_negative_testing_sum = Truncated(negative_testing_matrix, p, n, number)
+#    truncated_positive_testing_sum = Truncated(positive_testing_matrix, p, n, number)
+#    truncated_negative_testing_sum = Truncated(negative_testing_matrix, p, n, number)
+    truncate_package['positive_testing_matrix'] = positive_testing_matrix
+    truncate_package['negative_testing_matrix'] = negative_testing_matrix
     
     # Pack all the returned value in a dictionary
-    package = {}
-    package['training_sum'] = sum_all
-    package['training_indicator'] = training_indicator
-    package['positive_testing_sum'] = positive_testing_sum
-    package['negative_testing_sum'] = negative_testing_sum
-    package['truncated_positive_testing_sum'] = truncated_positive_testing_sum
-    package['truncated_negative_testing_sum'] = truncated_negative_testing_sum
-    package['truncated_training_sum'] = truncated_training_sum
-           
-    return package
+#    package = {}
+#    package['training_sum'] = sum_all
+#    package['training_indicator'] = training_indicator
+#    package['positive_testing_sum'] = positive_testing_sum
+#    package['negative_testing_sum'] = negative_testing_sum
+#    package['truncated_positive_testing_sum'] = truncated_positive_testing_sum
+#    package['truncated_negative_testing_sum'] = truncated_negative_testing_sum
+#    package['truncated_training_sum'] = truncated_training_sum
+#           
+    return training_indicator, truncate_package
 '''
 Truncate the logistic regression, make sure the pair is only influenced by the nearby samples
 Input:
@@ -323,16 +305,7 @@ def Truncated(matrix, p, n, number):
     sum_all_truncated = np.hstack((sum_all_p, sum_all_n))
     return sum_all_truncated
 #######################################################################
-#####################################################################
-#import numpy as np
-#a = list(range(16))
-#b = np.reshape(a, (4, 4))
-#np.shape(b)
-#np.shape(b)[0]
-#b[0,:]
-#sum_all = Truncated(b, 2, 2, 3)
-#b
-#sum_all
+
 ######################################################################################
     #################################################################################
 
@@ -358,25 +331,7 @@ def Loss(sum_all, indicator, parameter):
     return loss_total, d_coeff
 
 
-def Train_model(sum_all, indicator, parameter, l_rate = 1e-1, iteration = 10):
-    # Normalize the input sum_all
-    average = np.average(sum_all, axis = 0)
-    std = np.std(sum_all, axis = 0, keepdims = True)
-    sum_all -= average
-    sum_all /= std
-    ones = np.ones((np.shape(sum_all)[0], 1))
-    sum_all = np.hstack((sum_all, ones))
-    # take out the coeff
-    coeff = parameter['coeff']     
-    loss=[]
-    for i in range(iteration):
-        temp_loss, grad_coeff = Loss(sum_all, indicator, parameter)
-        coeff -= l_rate * grad_coeff
-        parameter['coeff'] = coeff
-        if iteration%1000 == 0:
-            print(temp_loss) 
-            loss.append(temp_loss)
-    return parameter, loss
+
 
 def Train_BFGS(sum_all, indicator, reg = 1, rho=0.9, c = 1e-3, termination = 1e-2):
     # Normalize the input sum_all
@@ -407,7 +362,6 @@ def Train_BFGS(sum_all, indicator, reg = 1, rho=0.9, c = 1e-3, termination = 1e-
 
         while new_loss > loss + c * (grad.T).dot(p):
             p *= rho
-            print(p, 'p')
             parameter_new['coeff'] = p + parameter['coeff']
             new_loss, new_grad = Loss(sum_all, indicator, parameter_new)
         
@@ -429,12 +383,6 @@ def Train_BFGS(sum_all, indicator, reg = 1, rho=0.9, c = 1e-3, termination = 1e-
         print(loss, '    ', grad_square)
     return parameter, loss
 
-def Plot(loss):
-    iteration  = list(range(len(loss)))
-    plt(iteration, loss)
-    plt.show()
-    pass
-    return 
 
 def Prediction(testing_sum_all, indicator,  parameter):
     # Normalize the testing_sum_all matrix
@@ -459,176 +407,111 @@ def Prediction(testing_sum_all, indicator,  parameter):
     
     return  round(rate, 3)
 #######################################
-'''
-Generate random samples by random process
-'''
-def Generate_random_negative(sample_size, data, Ab_lenth, Ag_length):
-    
-    TripleSingle =  [['TYR', 'Y'], ['LYS', 'K'],['ASP', 'D'], ['ASN', 'N'], ['TRP', 'W'], ['PHE', 'F'], ['GLN', 'Q'],
-                    ['GLU', 'E'], ['PRO', 'P'], ['GLY', 'G'], ['THR', 'T'],['SER', 'S'], ['ARG', 'R'], ['HIS', 'H'],
-                    ['LEU', 'L'], ['ILE', 'I'], ['CYS', 'C'], ['ALA', 'A'], ['MET', 'M'], ['VAL', 'V']]
-    AA = []
-    for aa in TripleSingle:
-        AA.append(aa[0])
-        
-    Ab = []
-    Ag = []
-    for parepi in data:
-        Ab.append(parepi[0])
-        Ag.append(parepi[1])
-    Ab_Ag = copy.deepcopy(Ab)
-    Ab_Ag.extend(Ag)
-        
-    negative_samples = []
-    while len(negative_samples) < sample_size:
-        r_Ab = ''
-        while r_Ab == '':        
-            r_Ab = random.sample(AA, Ab_lenth)
-            if r_Ab in Ab_Ag:
-                r_Ab = ''
-        r_Ag = ''
-        while r_Ag == '':
-            r_Ag = random.sample(AA, Ag_length)
-            if r_Ag in Ab_Ag:
-                r_Ag = ''
-        negative_samples.append([r_Ab, r_Ag, 0, 0])
-    return negative_samples
+
 ##################################################################################
-    #######################################################################
-'''
-This code block is used to generate training samples and testing samples, both negative
-and positive
-'''
-with open('ready_2_2_1_1__cn_gate_1_all', 'r') as f:
-    data = json.load(f)
-positive_data = []
-for parepi in data:
-    if parepi[2] >= 16:
-        positive_data.append(parepi)
-
-len(positive_data)
-positive_data[:6]
-
-negative_samples = Generate_random_negative(800, positive_data, 2, 2)
-len(negative_samples)
-negative_samples[:6]
-
-positive_samples, negative_samples, testing_positive, testing_negative = Generating_testing(positive_data, negative_samples)
-len(positive_samples)
-len(negative_samples)
-len(testing_positive)
-len(testing_negative) 
-#####################################################################################3
-#################################################################################### 
 
 
-#parameter = {}
-#parameter['reg'] = 1
-#coeff = np.random.normal(0, 1, (3, 1))
-#parameter['coeff'] = coeff
-#sum_all = package['sum_all']
-#training_indicator = package['training_indicator']
-#parameter, loss = Train_model(sum_all, training_indicator, parameter, l_rate = 1e-6, iteration = 10000)
-#parameter
-#loss
 
-##########################################
-def Rate(package):
-    parameter_BFGS, loss_BFGS = Train_BFGS(package['training_sum'], package['training_indicator'], 
-                                           reg=0, rho=0.85, c=1e-2, termination=1e-5)
-#    parameter_BFGS
-#    loss_BFGS
-    #Plot(loss)
-    rate = {}
-    positive_indicator = np.ones((len(testing_positive), 1))
-    rate_positive = Prediction(package['positive_testing_sum'], positive_indicator, parameter_BFGS)
-    rate['rate_positive'] = rate_positive
-#    rate
-#    prediction
+##################################################################################
+    #######################################################
+def main():
     
-    negative_indicator = np.zeros((len(testing_negative), 1))
-    rate_negative = Prediction(package['negative_testing_sum'], negative_indicator, parameter_BFGS)
-    rate['rate_negative'] = rate_negative
-#    rate
+    os.chdir("/home/leo/Documents/Database/Pipeline/Ready_2_2_1_1")
     
-    ##################################################################################
-    '''
-    Truncated logistic
-    '''
-    parameter_BFGS, loss_BFGS = Train_BFGS(package['truncated_training_sum'], package['training_indicator'], 
-                                           reg=0, rho=0.85, c=1e-2, termination=1e-5)
-#    parameter_BFGS
-#    loss_BFGS
-    #Plot(loss)
-    positive_indicator = np.ones((len(testing_positive), 1))
-    truncated_rate_positive = Prediction(package['truncated_positive_testing_sum'], positive_indicator, parameter_BFGS)   
-    rate['truncated_rate_positive'] = truncated_rate_positive
     
-    negative_indicator = np.zeros((len(testing_negative), 1))
-    truncated_rate_negative = Prediction(package['truncated_negative_testing_sum'], negative_indicator, parameter_BFGS)
-    rate['truncated_rate_negative'] = truncated_rate_negative
+    with open('training_2_2_1_1_all_jump', 'r') as f:
+        positive_samples = json.load(f)
+    with open('testing_2_2_1_1_all_jump', 'r') as f:
+        testing_positive = json.load(f)
+    with open('training_negative', 'r') as f:
+        negative_samples = json.load(f)
+    with open('testing_negative', 'r') as f:
+        testing_negative = json.load(f) 
+        
+    results = {}#store the results
+    truncate_percentage = [0.008, 0.005, 0.002, 0.001]
+    for i in range(2):
+        if i == 0:           
+            training_indicator, truncate_package = Similarity_matrix(testing_positive,\
+                                    testing_negative, positive_samples, negative_samples)
+        else:
+            training_indicator, truncate_package = Distance_matrix(testing_positive,\
+                                    testing_negative, positive_samples, negative_samples)
     
-    return rate
+        p = truncate_package['p']
+        n = truncate_package['n']
+        training_matrix = truncate_package['training_matrix']
+        positive_testing_matrix = truncate_package['positive_testing_matrix']
+        negative_testing_matrix = truncate_package['negative_testing_matrix']
+        
+        # Store the prediction rate in rate
+        rate = []
+        for percentage in truncate_percentage:
+            number = math.floor((n+p) * percentage)
+            truncated_training_sum = Truncated(training_matrix, p, n, number)
+            truncated_positive_testing_sum = Truncated(positive_testing_matrix, p, n, number)
+            truncated_negative_testing_sum = Truncated(negative_testing_matrix, p, n, number)
+            
+            
+            parameter_BFGS, loss_BFGS = Train_BFGS(truncated_training_sum, training_indicator, 
+                                                   reg=0, rho=0.85, c=1e-2, termination=1e-3)
+            
+            # stack the truncated positive and truncated negative testing matrix
+            truncated_testing_sum = np.vstack((truncated_positive_testing_sum, truncated_negative_testing_sum))
+            # Generate the indicator
+            positive_indicator = np.ones((len(testing_positive), 1))
+            negative_indicator = np.zeros((len(testing_negative), 1))
+            testing_indicator = np.vstack((positive_indicator, negative_indicator))
+            # Do the prediction.
+            testing_rate = Prediction(truncated_testing_sum, testing_indicator, parameter_BFGS)   
+            rate.append(testing_rate)
+            
+        if i == 0:       
+            results['Addition'] = rate
+        else:
+            results['Multiplication'] = rate
+        
+    return truncate_percentage, results
+        
 
-#####################################################################################
-package = Similarity_matrix(testing_positive, testing_negative, positive_samples, negative_samples, percentage=0.05)
-package = Distance_matrix(testing_positive, testing_negative, positive_samples, negative_samples, percentage=0.05)
-keys = list(package.keys())
-keys
-len(package['training_sum'])
-rate = Rate(package)
-rate
-#######################################
-######################################
+if __name__ == '__main__':
+    truncate_percentage, results = main()
+
+#results
+os.chdir("/home/leo/Documents/Database/Pipeline/Ready_2_2_1_1")
+#results['truncate_percentage'] = truncate_percentage
+#with open('Logistic_results', 'w') as f:
+#    json.dump(result, f)
+##
+with open('Logistic_results', 'r') as f:
+    result = json.load( f)  
+
+result
+#result['Addition'].extend(results['Addition'])
+#result['Addition']
+#result['Multiplication'].extend(results['Multiplication'])
+#result['Multiplication']
+#result['truncate_percentage'].extend(results['truncate_percentage'])
+#result['truncate_percentage']
+############################################################
 '''
-A little bit of experimental data
+Graph the result
 '''
-
-
-sum_all_testing = np.random.normal(0, 1, (5, 2))*2 + 1
-sum_all_tsting = np.ones((5, 2))
-indicator_testing = np.ones((5, 1))
-#Train_model(sum_all_testing, indicator_testing, reg = 0, l_rate = 1e-1, iteration = 150)
-average = np.average(sum_all_testing, axis = 0)
-std = np.std(sum_all_testing, axis = 0, keepdims = True)
-sum_all_testing -= average
-sum_all_testing /= std
-ones = np.ones((np.shape(sum_all_testing)[0], 1))
-sum_all_testing = np.hstack((sum_all_testing, ones))
-sum_all_testing
-# Initiate the parameters as zeros
-reg = 0
-parameter = {}
-parameter['reg'] = reg
-coeff = np.random.normal(0, 1, (3, 1))
-parameter['coeff'] = coeff
-coeff
-
-temp_loss, grad_coeff = Loss(sum_all_testing, indicator_testing, parameter)
-temp_loss
-
-Train_model(sum_all_testing, indicator_testing, reg = 0, l_rate = 1e-1, iteration = 150)
-
-iteration = 150
-l_rate = 1e-1
-loss=[]
-for i in range(iteration):
-    temp_loss, grad_coeff = Loss(sum_all_testing, indicator_testing, parameter)
-    loss.append(temp_loss)
-    coeff -= l_rate * grad_coeff
-    parameter['coeff'] = coeff
-    print(temp_loss) 
-
-
-#for i in range(150):
-#    temp_loss, grad_coeff = Loss(sum_all_testing, indicator_testing, parameter_testing)
-#    loss_testing.append(temp_loss)
-#    coeff -= 1e-1 * grad_coeff
-#    parameter_testing['coeff'] = coeff
-#    print(temp_loss) 
-  
+#log_percentage = []
+#for percentage in result['truncate_percentage']:
+#    log_percentage.append(-math.log(percentage))
+#log_percentage
 #
-#np.hstack((a, b, c.T))
-#np.sum(a, axis = 1, keepdims = True)
+#result['Addition']
+#plt.figure(figsize = (8, 6))
+#plt.plot(log_percentage, result['Addition'], 'r--')
+#plt.plot(log_percentage, result['Multiplication'])
+#plt.plot(log_percentage, result['Addition'], 'go')
+#plt.plot(log_percentage, result['Multiplication'], 'bo')
+#plt.legend(['Addition_distance', 'Multiplication_distance'])
+#plt.xlabel('-log(percentage)', fontsize = 20)
+#plt.ylabel('Accuracy', fontsize = 20)
+#plt.ylabel()
+#plt.show()
 
 
