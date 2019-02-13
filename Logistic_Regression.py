@@ -16,7 +16,6 @@ import matplotlib.pyplot as plt
 
 
 ####################################################################################################
-    ###############################################################################################
 # Define  distances
 from Bio import Align
 from Bio.SubsMat.MatrixInfo import blosum62
@@ -45,227 +44,92 @@ def To_seq(aa_sequence):
     
     return seq_obj
 
-def Multiplication_distance(Ab_seq1, Ab_seq2, Ag_seq1, Ag_seq2):
+def Multiplication_similarity(Ab_seq1, Ab_seq2, Ag_seq1, Ag_seq2):
     l_Ab = len(Ab_seq1)
     l_Ag = len(Ag_seq1)
-    distance = (1 - (4*l_Ab + aligner.score(Ab_seq1, Ab_seq2))/(15*l_Ab)) *  (1 - (4*l_Ag + aligner.score(Ag_seq1, Ag_seq2))/(15*l_Ag))
-    return distance
+    similarity = ((4*l_Ab + aligner.score(Ab_seq1, Ab_seq2))/(15*l_Ab)) *  ((4*l_Ag + aligner.score(Ag_seq1, Ag_seq2))/(15*l_Ag))
+    return similarity
     
-def Addition_distance(Ab_seq1, Ab_seq2, Ag_seq1, Ag_seq2):
-    l_Ab = len(Ab_seq1)
-    l_Ag = len(Ag_seq1)
-    distance = (1 - (4*l_Ab + aligner.score(Ab_seq1, Ab_seq2))/(15*l_Ab)) + (1 - (4*l_Ag + aligner.score(Ag_seq1, Ag_seq2))/(15*l_Ag))
-#    distance = -(aligner.score(Ab_seq1, Ab_seq2) + aligner.score(Ag_seq1, Ag_seq2))/(l_Ab*11 + l_Ag * 11)
-    return distance 
-
+#def Addition_similarity(Ab_seq1, Ab_seq2, Ag_seq1, Ag_seq2):
+#    l_Ab = len(Ab_seq1)
+#    l_Ag = len(Ag_seq1)
+#    similarity = ((4*l_Ab + aligner.score(Ab_seq1, Ab_seq2))/(15*l_Ab)) + ((4*l_Ag + aligner.score(Ag_seq1, Ag_seq2))/(15*l_Ag))
+##    distance = -(aligner.score(Ab_seq1, Ab_seq2) + aligner.score(Ag_seq1, Ag_seq2))/(l_Ab*11 + l_Ag * 11)
+#    return similarity
+##############################################################################
 '''
-This function should return the vectors required for the input of the Loss function
+Similarity_matrix:
+    a function to calculate the similarity_matrix by the function Multiplication_similarity
+INput:
+    row_set:
+        a list gives the rows of the matrix
+    column_set:
+        a list gives the columns of the matrix
+    square:
+        boolean, if it is True, it means the row_set is the same as the column set. Otherwise
+                 the row_set and the column_set are taken as the same
+output:
+    similarity_matrix:
+        a matrix in the shape of (len(row_set), len(column_set))
 '''
-def Similarity_matrix(testing_positive, testing_negative, positive_samples, negative_samples):
-    p = len(positive_samples)
-    n = len(negative_samples)
-    pp_matrix = np.zeros((p, p))
-    pn_matrix = np.zeros((p, n))
-    nn_matrix = np.zeros((n, n))
-    np_matrix = np.zeros((n, p))
-    for i in range(p):
-        for j in range(i, p):
-            pp_matrix[i, j] = aligner.score(To_seq(positive_samples[i][0]), To_seq(positive_samples[j][0])) 
-            + aligner.score(To_seq(positive_samples[i][1]), To_seq(positive_samples[j][1]))
-            pp_matrix[j, i] = pp_matrix[i, j]
-        for k in range(n):
-            pn_matrix[i,k] = aligner.score(To_seq(positive_samples[i][0]), To_seq(negative_samples[k][0]))
-            + aligner.score(To_seq(positive_samples[i][1]), To_seq(negative_samples[k][1]))
-            
-    for i in range(n):
-        for j in range(i, n):
-            nn_matrix[i, j] = aligner.score(To_seq(negative_samples[i][0]), To_seq(negative_samples[j][0])) 
-            + aligner.score(To_seq(negative_samples[i][1]), To_seq(negative_samples[j][1]))
-            nn_matrix[j, i] = nn_matrix[i, j]
-        for k in range(p):
-            np_matrix[i,k] = aligner.score(To_seq(negative_samples[i][0]), To_seq(positive_samples[k][0]))
-            + aligner.score(To_seq(negative_samples[i][1]), To_seq(positive_samples[k][1]))
-    # Stack the above matrices
-    matrix_positive = np.vstack((pp_matrix, np_matrix))
-    matrix_negative = np.vstack((pn_matrix, nn_matrix))
-#    # Calculator the vectors
-#    sum_positive = np.sum(matrix_positive, axis=1, keepdims = True)
-#    sum_negative = np.sum(matrix_negative, axis = 1, keepdims = True)
-#    sum_all = np.hstack((sum_positive, sum_negative))
-    # Truncate 
-    training_matrix = np.hstack((matrix_positive, matrix_negative))
-#    number = math.floor((n+p) * percentage)
-#    truncated_training_sum = Truncated(training_matrix, p, n, number)
-    truncate_package = {}
-    truncate_package['training_matrix'] = training_matrix
-    truncate_package['p'] = p
-    truncate_package['n'] = n
+def Similarity_matrix(row_set, column_set, square = False):
+    # Create the empty similarity_matrix
+    n_row =  len(row_set)
+    n_col = len(column_set)
+    similarity_matrix = np.zeros((n_row, n_col))
+    # Load the values to the matrix
+    if square == False:
+        for i in range(n_row):
+            for j in range(n_col):
+                Ab_seq1 = row_set[i][0]
+                Ab_seq2 = column_set[j][0]
+                Ag_seq1 = row_set[i][1]
+                Ag_seq2 = column_set[j][1]
+                similarity_matrix[i,j] = Multiplication_similarity(Ab_seq1, Ab_seq2, Ag_seq1, Ag_seq2)
+    if square == True:
+        for i in range(n_row):
+            for j in range(i-1, n_row):
+                Ab_seq1 = row_set[i][0]
+                Ab_seq2 = column_set[j][0]
+                Ag_seq1 = row_set[i][1]
+                Ag_seq2 = column_set[j][1]
+                similarity_matrix[i,j] = Multiplication_similarity(Ab_seq1, Ab_seq2, Ag_seq1, Ag_seq2)
+                similarity_matrix[j,i] = similarity_matrix[i,j]
+                
+    return similarity_matrix
+                
+        
+###########################################################################
 
-    
-    # Create the training_indicator vector
-    positive = np.ones((p, 1))
-    negative = np.zeros((n, 1))
-    training_indicator = np.vstack((positive, negative))
-    
-    # Calculate the vectors for testing
-    tp = len(testing_positive)
-    testing_pp = np.zeros((tp, p))
-    testing_pn = np.zeros((tp, n))
-    for i in range(tp):
-        for j in range(p):
-            testing_pp[i, j] = aligner.score(To_seq(testing_positive[i][0]), To_seq(positive_samples[j][0])) 
-            + aligner.score(To_seq(testing_positive[i][1]), To_seq(positive_samples[j][1]))
-        for k in range(n):
-            testing_pn[i,k] = aligner.score(To_seq(testing_positive[i][0]), To_seq(negative_samples[k][0]))
-            + aligner.score(To_seq(testing_positive[i][1]), To_seq(negative_samples[k][1]))
-            
-    tn = len(testing_negative)
-    testing_np = np.zeros((tn, p))
-    testing_nn = np.zeros((tn, n))
-    for i in range(tn):
-        for j in range(p):
-            testing_np[i, j] = aligner.score(To_seq(testing_negative[i][0]), To_seq(positive_samples[j][0])) 
-            + aligner.score(To_seq(testing_negative[i][1]), To_seq(positive_samples[j][1]))
-        for k in range(n):
-            testing_nn[i,k] = aligner.score(To_seq(testing_negative[i][0]), To_seq(negative_samples[k][0]))
-            + aligner.score(To_seq(testing_negative[i][1]), To_seq(negative_samples[k][1]))
-            
-    # Calculator the vectors
-#    testing_sum_pp = np.sum(testing_pp, axis=1, keepdims = True)
-#    testing_sum_pn = np.sum(testing_pn, axis = 1, keepdims = True)
-#    positive_testing_sum = np.hstack((testing_sum_pp, testing_sum_pn))
-#
-#    
-#    testing_sum_np = np.sum(testing_np, axis=1, keepdims = True)
-#    testing_sum_nn = np.sum(testing_nn, axis = 1, keepdims = True)
-#    negative_testing_sum = np.hstack((testing_sum_np, testing_sum_nn))
-#    
-    # Truncated
-#    number = math.floor((p+n) * percentage)
-    positive_testing_matrix = np.hstack((testing_pp, testing_pn))
-    negative_testing_matrix = np.hstack((testing_np, testing_nn))
-#    truncated_positive_testing_sum = Truncated(positive_testing_matrix, p, n, number)
-#    truncated_negative_testing_sum = Truncated(negative_testing_matrix, p, n, number)
-    truncate_package['positive_testing_matrix'] = positive_testing_matrix
-    truncate_package['negative_testing_matrix'] = negative_testing_matrix
-    
-    # Pack all the returned value in a dictionary
-#    package = {}
-#    package['training_sum'] = sum_all
-#    package['training_indicator'] = training_indicator
-#    package['positive_testing_sum'] = positive_testing_sum
-#    package['negative_testing_sum'] = negative_testing_sum
-#    package['truncated_positive_testing_sum'] = truncated_positive_testing_sum
-#    package['truncated_negative_testing_sum'] = truncated_negative_testing_sum
-#    package['truncated_training_sum'] = truncated_training_sum
+def Load_truncate_package(positive_testing_set, negative_testing_set, positive_training_set, negative_training_set):
+    p = len(positive_training_set)
+    n = len(negative_training_set)
+    # Combine the positive_training_set and negative_training_set
+    training_set = copy.deepcopy(positive_training_set)
+    training_set.extend(negative_training_set)
+    # Load the training_matrix
+    training_similarity_matrix = Similarity_matrix(training_set, training_set, square=True)
 
-           
-    return training_indicator, truncate_package
-
-def Distance_matrix(testing_positive, testing_negative, positive_samples, negative_samples):
-    p = len(positive_samples)
-    n = len(negative_samples)
-    pp_matrix = np.zeros((p, p))
-    pn_matrix = np.zeros((p, n))
-    nn_matrix = np.zeros((n, n))
-    np_matrix = np.zeros((n, p))
-    for i in range(p):
-        for j in range(i, p):
-            pp_matrix[i, j] = Multiplication_distance(To_seq(positive_samples[i][0]), To_seq(positive_samples[j][0]),
-                                     To_seq(positive_samples[i][1]), To_seq(positive_samples[j][1])) 
-            pp_matrix[j, i] = pp_matrix[i, j]
-        for k in range(n):
-            pn_matrix[i,k] = Multiplication_distance(To_seq(positive_samples[i][0]), To_seq(negative_samples[k][0]), 
-                     To_seq(positive_samples[i][1]), To_seq(negative_samples[k][1]))
-            
-    for i in range(n):
-        for j in range(i, n):
-            nn_matrix[i, j] = Multiplication_distance(To_seq(negative_samples[i][0]), To_seq(negative_samples[j][0]),
-                     To_seq(negative_samples[i][1]), To_seq(negative_samples[j][1])) 
-            nn_matrix[j, i] = nn_matrix[i, j]
-        for k in range(p):
-            np_matrix[i,k] = Multiplication_distance(To_seq(negative_samples[i][0]), To_seq(positive_samples[k][0]),
-                     To_seq(negative_samples[i][1]), To_seq(positive_samples[k][1]))
-    # Stack the above matrices
-    matrix_positive = - np.vstack((pp_matrix, np_matrix))
-    matrix_negative = - np.vstack((pn_matrix, nn_matrix))
-    # Calculator the vectors
-#    sum_positive = np.sum(matrix_positive, axis=1, keepdims = True)
-#    sum_negative = np.sum(matrix_negative, axis = 1, keepdims = True)
-#    sum_all = np.hstack((sum_positive, sum_negative))
-    # Truncate 
-    training_matrix = np.hstack((matrix_positive, matrix_negative))
-#    number = math.floor((n+p) * percentage)
-#    truncated_training_sum = Truncated(training_matrix, p, n, number)
-    truncate_package = {}
-    truncate_package['training_matrix'] = training_matrix
-    truncate_package['p'] = p
-    truncate_package['n'] = n
 
     # Create the training_indicator vector
     positive = np.ones((p, 1))
     negative = np.zeros((n, 1))
     training_indicator = np.vstack((positive, negative))
     
-    # Calculate the vectors for testing
+    # Calculating the testing similarity matrix
+    negative_testing_matrix = Similarity_matrix(negative_testing_set, training_set, square = False)
+    positive_testing_matrix = Similarity_matrix(positive_testing_set, training_set, square = False)
 
-    tp = len(testing_positive)
-    testing_pp = np.zeros((tp, p))
-    testing_pn = np.zeros((tp, n))
-    for i in range(tp):
-        for j in range(p):
-            testing_pp[i, j] = Multiplication_distance(To_seq(testing_positive[i][0]), To_seq(positive_samples[j][0]),
-                      To_seq(testing_positive[i][1]), To_seq(positive_samples[j][1])) 
-
-        for k in range(n):
-            testing_pn[i,k] = Multiplication_distance(To_seq(testing_positive[i][0]), To_seq(negative_samples[k][0]),
-                      To_seq(testing_positive[i][1]), To_seq(negative_samples[k][1]))
-
-            
-    tn = len(testing_negative)
-    testing_np = np.zeros((tn, p))
-    testing_nn = np.zeros((tn, n))
-    for i in range(tn):
-        for j in range(p):
-            testing_np[i, j] = Multiplication_distance(To_seq(testing_negative[i][0]), To_seq(positive_samples[j][0]),
-                      To_seq(testing_negative[i][1]), To_seq(positive_samples[j][1])) 
-        for k in range(n):
-            testing_nn[i,k] = Multiplication_distance(To_seq(testing_negative[i][0]), To_seq(negative_samples[k][0]),
-                      To_seq(testing_negative[i][1]), To_seq(negative_samples[k][1]))
-            
-    # Calculator the vectors
-    testing_pp = - testing_pp
-    testing_pn = -testing_pn
-#    testing_sum_pp = np.sum(testing_pp, axis=1, keepdims = True)
-#    testing_sum_pn = np.sum(testing_pn, axis = 1, keepdims = True)
-#    positive_testing_sum = np.hstack((testing_sum_pp, testing_sum_pn))
-    
-    testing_np = - testing_np
-    testing_nn = - testing_nn
-#    testing_sum_np = np.sum(testing_np, axis=1, keepdims = True)
-#    testing_sum_nn = np.sum(testing_nn, axis = 1, keepdims = True)
-#    negative_testing_sum = np.hstack((testing_sum_np, testing_sum_nn))
-    
-    # Truncated
-#    number = math.floor((p+n) * percentage)
-    positive_testing_matrix = np.hstack((testing_pp, testing_pn))
-    negative_testing_matrix = np.hstack((testing_np, testing_nn))
-#    truncated_positive_testing_sum = Truncated(positive_testing_matrix, p, n, number)
-#    truncated_negative_testing_sum = Truncated(negative_testing_matrix, p, n, number)
-    truncate_package['positive_testing_matrix'] = positive_testing_matrix
+    # Load the truncate package    
+    truncate_package = {}
+    truncate_package['training_matrix'] = training_similarity_matrix
+    truncate_package['p'] = p
+    truncate_package['n'] = n
+    truncate_package['positive_testing_matrix'] = positive_testing_matrix 
     truncate_package['negative_testing_matrix'] = negative_testing_matrix
-    
-    # Pack all the returned value in a dictionary
-#    package = {}
-#    package['training_sum'] = sum_all
-#    package['training_indicator'] = training_indicator
-#    package['positive_testing_sum'] = positive_testing_sum
-#    package['negative_testing_sum'] = negative_testing_sum
-#    package['truncated_positive_testing_sum'] = truncated_positive_testing_sum
-#    package['truncated_negative_testing_sum'] = truncated_negative_testing_sum
-#    package['truncated_training_sum'] = truncated_training_sum
-#           
-    return training_indicator, truncate_package
+    truncate_package['training_indicator'] = training_indicator
+#    truncate_package['training_indicator'] = training_indicator           
+    return truncate_package
 '''
 Truncate the logistic regression, make sure the pair is only influenced by the nearby samples
 Input:
@@ -293,21 +157,28 @@ def Truncated(matrix, p, n, number):
         # Calculate the sums for different signs
         sum_p = 0
         sum_n = 0
+        # To make the calculation more stable, we take the average of similarity values
+        # Track the number of positive and negative neighbor by p and n respectively.
+        p = 0
+        n = 0
         for smile in similarity_selected:
             if smile[1] == 1:
                 sum_p += smile[0]
+                p += 1
             elif smile[1] == -1:
                 sum_n  += smile[0]
+                n += 1 
         # load to the sum_all_p and sum_all_n
-        sum_all_p[i, 0] = sum_p  
-        sum_all_n[i, 0] = sum_n 
+        if p != 0:            
+            sum_all_p[i, 0] = sum_p / p 
+        if n != 0:
+            sum_all_n[i, 0] = sum_n / n 
     # Generate the sum_all_truncated
     sum_all_truncated = np.hstack((sum_all_p, sum_all_n))
     return sum_all_truncated
 #######################################################################
 
 ######################################################################################
-    #################################################################################
 
 def Loss(sum_all, indicator, parameter):
     coeff = parameter['coeff']
@@ -330,15 +201,14 @@ def Loss(sum_all, indicator, parameter):
     pass
     return loss_total, d_coeff
 
-
-
-
+################################################################################
+    
 def Train_BFGS(sum_all, indicator, reg = 1, rho=0.9, c = 1e-3, termination = 1e-2):
     # Normalize the input sum_all
-    average = np.average(sum_all, axis = 0)
-    std = np.std(sum_all, axis = 0, keepdims = True)
-    sum_all -= average
-    sum_all /= std
+#    average = np.average(sum_all, axis = 0)
+#    std = np.std(sum_all, axis = 0, keepdims = True)
+#    sum_all /= sum_all.shape[1] 
+#    sum_all /= std
     ones = np.ones((np.shape(sum_all)[0], 1))
     sum_all = np.hstack((sum_all, ones))
     # Give the initial Hessian h
@@ -383,135 +253,196 @@ def Train_BFGS(sum_all, indicator, reg = 1, rho=0.9, c = 1e-3, termination = 1e-
         print(loss, '    ', grad_square)
     return parameter, loss
 
+##################################################################
 
-def Prediction(testing_sum_all, indicator,  parameter):
+#######################################
+def Prediction_area(testing_sum_all, indicator, parameter):
     # Normalize the testing_sum_all matrix
     sum_all = testing_sum_all
-    average = np.average(sum_all, axis = 0)
-    std = np.std(sum_all, axis = 0, keepdims = True)
-    sum_all -= average
-    sum_all /= std
+#    average = np.average(sum_all, axis = 0)
+#    std = np.std(sum_all, axis = 0, keepdims = True)
+#    sum_all /= sum_all.shape[0]
+#    sum_all /= std
     ones = np.ones((np.shape(sum_all)[0], 1))
     sum_all = np.hstack((sum_all, ones))
     # Do the prediction
     n_total = np.shape(testing_sum_all)[0]
     coeff = parameter['coeff']
     pred = sum_all.dot(coeff)
-    n = 0
+    # Relate the pred with the indicator
+    pred_indicator = []
     for i in range(n_total):
-        if pred[i] > 0 and indicator[i] == 1:
-            n += 1
-        elif pred[i] < 0 and indicator[i] == 0:
-            n += 1
-    rate = n / n_total
+        pred_indicator.append([pred[i,0], indicator[i]])
+    pred_indicator.sort(key=lambda x:x[0], reverse = True)         
+        
+    # Calculate the area        
+    area = 0
+    n_positive = 0
+    n_negative = 0
+    for i in pred_indicator:
+        if i[1] == 1:
+            n_positive += 1
+        else:
+            n_negative += 1
+        area += n_positive/(n_positive+n_negative)
     
-    return  round(rate, 3)
-#######################################
+    return  area
+#################################################################
+def Precision_recall(testing_sum, testing_indicator, parameter):
+    # Attach the constant term
+    ones = np.ones((np.shape(testing_sum)[0], 1))
+    sum_all = np.hstack((testing_sum, ones))
+    # Take out the coeff
+    coeff = parameter['coeff']
+    # Make prediction
+    pred = sum_all.dot(coeff)
+    # Relate the pred with the indicator
+    pred_indicator = []
+    for i in range(len(testing_indicator)):
+        pred_indicator.append([pred[i,0], testing_indicator[i]])
+    pred_indicator.sort(key=lambda x:x[0], reverse = True)
+
+    # Calculate the recall and precision
+    precision=[]
+    recall = []
+    denominator = np.sum(np.array(testing_indicator))
+    n_positive = 0
+    n_negative = 0
+    for i in pred_indicator:
+        if i[1] == 1:# if we do the binary, we can do if i[1] ==1:
+            n_positive += 1
+        else:
+            n_negative += 1
+        precision.append(n_positive/(n_positive+n_negative))
+        recall.append(n_positive/denominator)
+        
+    return precision, recall
 
 ##################################################################################
 
 
-
-##################################################################################
-    #######################################################
-def main():
-    
-    os.chdir("/home/leo/Documents/Database/Pipeline/Ready_2_2_1_1")
-    
-    
-    with open('training_2_2_1_1_all_jump', 'r') as f:
-        positive_samples = json.load(f)
-    with open('testing_2_2_1_1_all_jump', 'r') as f:
-        testing_positive = json.load(f)
-    with open('training_negative', 'r') as f:
-        negative_samples = json.load(f)
-    with open('testing_negative', 'r') as f:
-        testing_negative = json.load(f) 
+def main(wd_results, wd_negative_samples, header):
+    # Indicate the process
+    print('working on ' + header)    
+    os.chdir(wd_results)
+    with open(header+'_cross_results_LogisticRegression', 'r') as f:
+        results = json.load(f)
+    with open(header+'_aa_train', 'r') as f:
+        positive_training_set = json.load(f)
+    with open(header+'_aa_test', 'r') as f:
+        positive_testing_set = json.load(f)
         
-    results = {}#store the results
-    truncate_percentage = [0.008, 0.005, 0.002, 0.001]
-    for i in range(2):
-        if i == 0:           
-            training_indicator, truncate_package = Similarity_matrix(testing_positive,\
-                                    testing_negative, positive_samples, negative_samples)
-        else:
-            training_indicator, truncate_package = Distance_matrix(testing_positive,\
-                                    testing_negative, positive_samples, negative_samples)
+    os.chdir(wd_negative_samples)
+    with open(header+'_train_negative', 'r') as f:
+        negative_training_set = json.load(f)
+    with open(header+'_test_negative', 'r') as f:
+        negative_testing_set = json.load(f)  
     
-        p = truncate_package['p']
-        n = truncate_package['n']
-        training_matrix = truncate_package['training_matrix']
-        positive_testing_matrix = truncate_package['positive_testing_matrix']
-        negative_testing_matrix = truncate_package['negative_testing_matrix']
-        
-        # Store the prediction rate in rate
-        rate = []
-        for percentage in truncate_percentage:
-            number = math.floor((n+p) * percentage)
-            truncated_training_sum = Truncated(training_matrix, p, n, number)
-            truncated_positive_testing_sum = Truncated(positive_testing_matrix, p, n, number)
-            truncated_negative_testing_sum = Truncated(negative_testing_matrix, p, n, number)
-            
-            
-            parameter_BFGS, loss_BFGS = Train_BFGS(truncated_training_sum, training_indicator, 
-                                                   reg=0, rho=0.85, c=1e-2, termination=1e-3)
-            
-            # stack the truncated positive and truncated negative testing matrix
-            truncated_testing_sum = np.vstack((truncated_positive_testing_sum, truncated_negative_testing_sum))
-            # Generate the indicator
-            positive_indicator = np.ones((len(testing_positive), 1))
-            negative_indicator = np.zeros((len(testing_negative), 1))
-            testing_indicator = np.vstack((positive_indicator, negative_indicator))
-            # Do the prediction.
-            testing_rate = Prediction(truncated_testing_sum, testing_indicator, parameter_BFGS)   
-            rate.append(testing_rate)
-            
-        if i == 0:       
-            results['Addition'] = rate
-        else:
-            results['Multiplication'] = rate
-        
-    return truncate_percentage, results
-        
-
+    # Find the best parameter
+    precentages = results['precentages']
+    areas = results['areas']
+    best_percentage =precentages[np.argmax(np.array(areas))]
+    
+    # Load the package
+    truncate_package = Load_truncate_package(positive_testing_set,\
+                                             negative_testing_set, positive_training_set, negative_training_set)
+    # Truncate
+    p = truncate_package['p']
+    n = truncate_package['n']
+    number = math.floor((n+p) * best_percentage)
+    training_similarity_matrix = truncate_package['training_matrix']
+    positive_testing_matrix = truncate_package['positive_testing_matrix']  
+    negative_testing_matrix = truncate_package['negative_testing_matrix']
+    training_indicator = truncate_package['training_indicator']
+    
+    truncated_training_sum = Truncated(training_similarity_matrix , p, n, number)
+    truncated_positive_testing_sum = Truncated(positive_testing_matrix, p, n, number)
+    truncated_negative_testing_sum = Truncated(negative_testing_matrix, p, n, number)
+    
+    # Train the model
+    parameter_BFGS, loss_BFGS = Train_BFGS(truncated_training_sum, training_indicator, 
+                                       reg=1, rho=0.85, c=1e-2, termination=1e-3)
+    
+    # Prepare the testing data
+    truncated_testing_sum = np.vstack((truncated_positive_testing_sum, truncated_negative_testing_sum))
+    testing_indicator = np.vstack((np.ones((len(positive_testing_set), 1)), np.zeros((len(negative_testing_set), 1))))
+    
+    # Make prediction about the testing data
+    precision, recall = Precision_recall(truncated_testing_sum, testing_indicator, parameter_BFGS)
+    
+    # Load the results to a dictionary and return this dictionary
+    results = {}
+    results['best_percentage'] = best_percentage
+    results['precision'] = precision
+    results['recall'] = recall
+    results['coeff'] = parameter_BFGS['coeff']
+    
+    return results
+##################################################################### 
+ordered_headers = ['2_2','3_3', '2_3', '3_2', '3_4', '4_3','2_4', '4_2','4_4',\
+                   '1_1','1_2', '2_1', '1_3', '3_1', '1_4', '4_1']
+############################################################################
+'''
+Run the main and Save the results
+'''
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
+###################################################################
 if __name__ == '__main__':
-    truncate_percentage, results = main()
+    directory_paires = [['/home/leo/Documents/Database/Pipeline/Results/1_free',\
+      '/home/leo/Documents/Database/Pipeline/Negative samples/1_free'],\
+     ['/home/leo/Documents/Database/Pipeline/Results/0_free',\
+                           '/home/leo/Documents/Database/Pipeline/Negative samples/0_free']]
+    
+    # Let check if all the corresponding length of the positive training and the negative training
+    # are the same. And we have to make sure that all the files needed exist.
+    for i in range(2):
+        wd_results = directory_paires[i][0]
+        wd_negative_samples = directory_paires[i][1]
+        n = 0
+        for i in range(1,5):
+            for j in range(1, 5):
+                header = str(i)+'_'+str(j)
+                os.chdir(wd_results)
+                with open(header+'_aa_train', 'r') as f:
+                    positive_training_set = json.load(f)
+                with open(header+'_aa_test', 'r') as f:
+                    positive_testing_set = json.load(f)
+                with open(header+'_cross_results_LogisticRegression', 'r') as f:
+                    results = json.load(f)
+                    
+                os.chdir(wd_negative_samples)
+                with open(header+'_train_negative', 'r') as f:
+                    negative_training_set = json.load(f)
+                with open(header+'_test_negative', 'r') as f:
+                    negative_testing_set = json.load(f)
+                
+                if len(positive_training_set) != len(negative_training_set):
+                    print(header+' positive and negative are not of the same length')
+                    print(wd_results)
+                    n = 1
+                    break
 
-#results
-os.chdir("/home/leo/Documents/Database/Pipeline/Ready_2_2_1_1")
-#results['truncate_percentage'] = truncate_percentage
-#with open('Logistic_results', 'w') as f:
-#    json.dump(result, f)
-##
-with open('Logistic_results', 'r') as f:
-    result = json.load( f)  
-
-result
-#result['Addition'].extend(results['Addition'])
-#result['Addition']
-#result['Multiplication'].extend(results['Multiplication'])
-#result['Multiplication']
-#result['truncate_percentage'].extend(results['truncate_percentage'])
-#result['truncate_percentage']
-############################################################
-'''
-Graph the result
-'''
-#log_percentage = []
-#for percentage in result['truncate_percentage']:
-#    log_percentage.append(-math.log(percentage))
-#log_percentage
-#
-#result['Addition']
-#plt.figure(figsize = (8, 6))
-#plt.plot(log_percentage, result['Addition'], 'r--')
-#plt.plot(log_percentage, result['Multiplication'])
-#plt.plot(log_percentage, result['Addition'], 'go')
-#plt.plot(log_percentage, result['Multiplication'], 'bo')
-#plt.legend(['Addition_distance', 'Multiplication_distance'])
-#plt.xlabel('-log(percentage)', fontsize = 20)
-#plt.ylabel('Accuracy', fontsize = 20)
-#plt.ylabel()
-#plt.show()
-
-
+    if n == 0:
+        print('Now, we are going to the large amount of data processing. It may '+\
+              'spend a lot of time.')
+            
+    # Get into the work
+    # Fist let us set the working oder of different files. working on the most interesting file 
+    # first then gradually reduce to the most uninteresting file, so the even if there are some
+    # problems pop up in the middle, we have finished the most interesting files.
+    for i in range(2):
+        wd_results = directory_paires[i][0]
+        wd_negative_samples = directory_paires[i][1]
+        for header in ordered_headers:
+            results =  main(wd_results, wd_negative_samples, header)
+            
+             # Save the results
+            os.chdir(wd_results)
+            with open(header+'_results_LogisticRegression', 'w') as f:
+                json.dump(results, f,  cls=NumpyEncoder)    
+    
+    
