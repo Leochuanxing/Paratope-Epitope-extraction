@@ -5,6 +5,9 @@ import json
 import os
 import copy
 ########################################################################
+os.chdir('/home/leo/Documents/Database/Pipeline/Codes and testing data')
+from RBFN_coverage import To_seq
+###################################################################
 '''
 Define an aligner
 '''        
@@ -53,28 +56,32 @@ Define a function to find all the complexes different with each other by a few m
 '''   
 
 #################################################################################
+'''
+T_S:
+    a function to change from triple letter notation to single letter notation
+Input:
+    triple, a string, gives a triple letter notation
+Output:
+    a single letter notaion
+'''
 
-           
-
-def To_seq( aa_sequence):
-    
+def T_S(triple):
     TripleSingle =  [['TYR', 'Y'], ['LYS', 'K'],['ASP', 'D'], ['ASN', 'N'], ['TRP', 'W'], ['PHE', 'F'], ['GLN', 'Q'],
-   ['GLU', 'E'], ['PRO', 'P'], ['GLY', 'G'], ['THR', 'T'],['SER', 'S'], ['ARG', 'R'], ['HIS', 'H'],
-   ['LEU', 'L'], ['ILE', 'I'], ['CYS', 'C'], ['ALA', 'A'], ['MET', 'M'], ['VAL', 'V']]
-    
-    from Bio.Seq import Seq
-    from Bio.Alphabet import IUPAC
-    
-    seq_obj = None
+       ['GLU', 'E'], ['PRO', 'P'], ['GLY', 'G'], ['THR', 'T'],['SER', 'S'], ['ARG', 'R'], ['HIS', 'H'],
+       ['LEU', 'L'], ['ILE', 'I'], ['CYS', 'C'], ['ALA', 'A'], ['MET', 'M'], ['VAL', 'V']]
+    for TS in TripleSingle:
+        if TS[0] == triple:
+            return TS[1]
+def S_T(single):
+    TripleSingle =  [['TYR', 'Y'], ['LYS', 'K'],['ASP', 'D'], ['ASN', 'N'], ['TRP', 'W'], ['PHE', 'F'], ['GLN', 'Q'],
+       ['GLU', 'E'], ['PRO', 'P'], ['GLY', 'G'], ['THR', 'T'],['SER', 'S'], ['ARG', 'R'], ['HIS', 'H'],
+       ['LEU', 'L'], ['ILE', 'I'], ['CYS', 'C'], ['ALA', 'A'], ['MET', 'M'], ['VAL', 'V']]
+    for TS in TripleSingle:
+        if TS[1] == single:
+            return TS[0]
+######################################################           
 
-    seq_single_letter = ''
-    for aa in aa_sequence:
-        for TS in TripleSingle:
-            if TS[0] == aa:
-                seq_single_letter += TS[1]
-    seq_obj = Seq(seq_single_letter, IUPAC.protein)
-    
-    return seq_obj
+
     '''
     SeqCDR:
         to convert the sequence into sequence object and be prepared for futher alignment
@@ -326,7 +333,7 @@ def Affinity_control(paires, ids_affinity, control):
 Here is the working flow of finding the paires with the Ab fixed and the difference
 of the Ag chains are within a given range.
 '''
-os.chdir('/home/leo/Documents/Database/Pipeline/Complexes with Affinity')
+os.chdir('/home/leo/Documents/Database/Pipeline/All with peptide 5+ resolution 4A')
 with open('sequence', 'r') as f:
     sequence = json.load(f)
 with open('good_matched_ids', 'r') as f:
@@ -340,11 +347,15 @@ workable_list = Affinity_control(paires_Ab_fixed, ids_affinity, control = 1)
 paires_Ab_fixed
 workable_list
 ######################################################################
-
-pdbid1 = '3a6b'
-pdbid2 = '3a67'
+'''
+The following is a step by step check.
+'''
+pdbid1 = '1nbz'
+pdbid2 = '1ndy'
 combination_1 = good_matched_ids[pdbid1][0]
 combination_2 = good_matched_ids[pdbid2][0]
+combination_1
+combination_2
 # Take out the name of the heavy chain
 H1=combination_1[0]
 H2 = combination_2[0]
@@ -463,6 +474,7 @@ workable_list_Ag_fixed
 '''
 The following is a step by step check
 '''
+len(good_matched_ids)
 pdbid1 = '2nyy'
 pdbid2= '2nz9'
 # Take out the first element of the value corresponding to 
@@ -560,19 +572,19 @@ The structure of the workable_dicts:
 
 workable_dicts_Ab_fixed  = [{'mutations': [['1hh9', 'C', [7, 9], ['GLY', 'ARG'], ['A', 'B']],
     ['1hh6', 'C', [7, 9], ['ASN', 'LYS'], ['A', 'B']]],
-  'affinities': [['1hh9', '1.00E-05'], ['1hh6', '1.00E-07']]},
+  'affinities': [['1hh9', '1hh6'], ['1.00E-05', '1.00E-07']]},
                  
  {'mutations': [['1nbz', 'C', [95, 96], ['ALA', 'LYS'], ['A', 'B']],
     ['1nby', 'C', [95, 96], ['LYS', 'ALA'], ['A', 'B']]],
-  'affinities': [['1nbz', '1.06E-06'], ['1nby', '9.09E-05']]},
+  'affinities': [['1nbz', '1nby'], ['1.06E-06', '9.09E-05']]},
                 
  {'mutations': [['1nbz', 'C', [96], ['LYS'], ['A', 'B']],
     ['1dqj', 'C', [96], ['ALA'], ['A', 'B']]],
-  'affinities': [['1nbz', '1.06E-06'], ['1dqj', '2.86E-09']]},
+  'affinities': [['1nbz','1dqj'], ['1.06E-06', '2.86E-09']]},
                 
  {'mutations': [['1nby', 'C', [95], ['LYS'], ['A', 'B']],
     ['1dqj', 'C', [95], ['ALA'], ['A', 'B']]],
-  'affinities': [['1nby', '9.09E-05'], ['1dqj', '2.86E-09']]},
+  'affinities': [['1nby', '1dqj'], ['9.09E-05', '2.86E-09']]},
                 
   {'mutations': [['2fx8', 'P', [3], ['LYS'], ['H', 'L']],
                  ['2fx8', 'P', [6], ['TRP'], ['H', 'L']],
@@ -580,12 +592,12 @@ workable_dicts_Ab_fixed  = [{'mutations': [['1hh9', 'C', [7, 9], ['GLY', 'ARG'],
     ['2fx9', 'P', [3], ['ASP'], ['H', 'L']],
     ['2fx9', 'P', [6], ['ASN'], ['H', 'L']],
     ['2fx9', 'P', [9,10,11,12], ['ARG', 'ARG'], ['H', 'L']]],
-  'affinities': [['2fx8', '3.02E-07'], ['2fx9', '1.70E-08']]}]
+  'affinities': [['2fx8', '2fx9'], ['3.02E-07', '1.70E-08']]}]
                  
                    
 workable_dicts_Ag_fixed =[ {'mutations': [['3a6b', 'L', [30,31], ['ASP','ASN'], ['Y']],
                    ['3a67', 'L', [30,31], ['ASN', 'ASP'], ['Y']]],             
-  'affinities': [['3a6b', '1.08E-07'], ['3a67', '5.62E-09']]},
+  'affinities': [['3a6b', '3a67'], ['1.08E-07', '5.62E-09']]},
  
   {'mutations': [['3a6c', 'L', [31], ['ASP'], ['Y']],
                    ['3a6c', 'L', [91], ['ASN'], ['Y']],
@@ -603,11 +615,243 @@ workable_dicts_Ag_fixed =[ {'mutations': [['3a6b', 'L', [30,31], ['ASP','ASN'], 
 
                   ['2nz9', 'D', [28,29,30],['LYS', 'TYR', 'ASP'], ['A']]],             
   'affinities': [['3a6c', '3a67'], ['7.14E-09', '5.62E-09']]}]
+  
+###############################################################################33    
+os.chdir('/home/leo/Documents/Database/Pipeline/Affinity/All_structures')    
+with open('combined_ids', 'r') as f:
+    combined_ids = json.load(f)
+with open('matched_ids', 'r') as f:
+    matched_ids = json.load(f)
+with open('sequence', 'r') as f:
+    sequence = json.load(f)
+with open('contact', 'r') as f:
+    contact = json.load(f)
+ 
+##########################################################################
+'''
+Add other mutation information from the articles
+'''
+# Check if it is the correct complex by checking the amino acids
+pdbid = '1dqj'
+match_id = matched_ids[pdbid][0]
+match_id
+H_chain = match_id[0]
+L_chain = match_id[1]
+A_chain = match_id[2]
 
-os.chdir('/home/leo/Documents/Database/Pipeline/Complexes with Affinity')
+seq_dict = sequence[pdbid]
+
+H_mutation_pos = [31, 32, 49, 52, 97]
+L_mutation_pos = []
+A_mutation_pos = []
+
+for i in H_mutation_pos:
+    print(T_S(seq_dict[H_chain][i]))
+
+for j in L_mutation_pos:
+    print(T_S(seq_dict[L_chain][j]))
+
+for k in A_mutation_pos:
+    print(T_S(seq_dict[A_chain][k]))
+
+
+
+pdbid1 = '1nbz'
+
+match_id1 = matched_ids[pdbid1][0]
+H_chain1 = match_id1[0]
+L_chain1 = match_id1[1]
+A_chain1 = match_id1[2]
+# Align the heavy chains
+Ab_diff_H = 0
+if H_chain1 != '' and H_chain != '':
+    Ab_diff_H =  Chain_diff(pdbid1, H_chain1, pdbid, H_chain, sequence)
+# Align the light chains
+Ab_diff_L = 0
+if L_chain1 != '' and L_chain != '':
+    Ab_diff_L = Chain_diff(pdbid1, L_chain1, pdbid, L_chain, sequence)
+# Align the Ag chains
+Ag_diff = 0
+if A_chain1 != '' and A_chain != '':
+    Ag_diff = Chain_diff(pdbid1,A_chain1, pdbid, A_chain, sequence)
+    
+Ab_diff_H
+Ab_diff_L
+Ag_diff
+    
+A_alignments = aligner.align(To_seq(sequence[pdbid][A_chain]), To_seq(sequence[pdbid1][A_chain1]))
+for alignment in A_alignments:
+    print(alignment)
+
+H_alignments = aligner.align(To_seq(sequence[pdbid][H_chain]), To_seq(sequence[pdbid1][H_chain1]))
+for alignment in H_alignments:
+    print(alignment)
+    
+L_alignments = aligner.align(To_seq(sequence[pdbid][L_chain]), To_seq(sequence[pdbid1][L_chain1]))
+for alignment in L_alignments:
+    print(alignment)
+
+S_T('Y')
+other_mutations_Ab_Ag_fixed=[
+        {'mutations': [['1dqj', 'C', [19], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '1.4E6'], 'Ka'],
+  'Ab_Ag':'Ag'},
+         
+         {'mutations': [['1dqj', 'C', [20], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '4.3E7'], 'Ka'],
+  'Ab_Ag':'Ag'},
+          
+          {'mutations': [['1dqj', 'C', [61], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '1E8'], 'Ka'],
+  'Ab_Ag':'Ag'},
+           
+         {'mutations': [['1dqj', 'C', [62], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '3.7E7'], 'Ka'],
+  'Ab_Ag':'Ag'},
+          
+       {'mutations': [['1dqj', 'C', [74], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '3.1E7'], 'Ka'],
+  'Ab_Ag':'Ag'},
+        
+       {'mutations': [['1dqj', 'C', [88], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '8.7E7'], 'Ka'],
+  'Ab_Ag':'Ag'},
+        
+        {'mutations': [['1dqj', 'C', [92], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '1.2E8'], 'Ka'],
+  'Ab_Ag':'Ag'},
+         
+        {'mutations': [['1dqj', 'C', [95], ['ALA'], ['A', 'B']],
+                       ['1nby', 'C', [95], ['LYS'], ['A', 'B']]],             
+  'affinities': [['1dqj', '1nby'], ['3.6E8', '1.1E4'], 'Ka'],
+  'Ab_Ag':'Ag'},
+                       
+        {'mutations': [['1dqj', 'C', [96], ['ALA'], ['A', 'B']],
+                       ['1nbz', 'C', [96], ['LYS'], ['A', 'B']]],             
+  'affinities': [['1dqj', '1nbz'], ['3.6E8', '9.4E5'], 'Ka'],
+  'Ab_Ag':'Ag'},
+                       
+       {'mutations': [['1dqj', 'C', [99], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '9.7E7'], 'Ka'],
+  'Ab_Ag':'Ag'},
+        
+       {'mutations': [['1dqj', 'C', [100], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '4E7'], 'Ka'],
+  'Ab_Ag':'Ag'},
+        
+    {'mutations': [['1dqj', 'C', [100], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '4E7'], 'Ka'],
+  'Ab_Ag':'Ag'},
+     
+    {'mutations': [['1dqj', 'A', [30], ['ALA'], ['C']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '1.2E7'], 'Ka'],
+  'Ab_Ag':'Ab'},
+     
+    {'mutations': [['1dqj', 'A', [31], ['ALA'], ['C']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '3.6E5'], 'Ka'],
+  'Ab_Ag':'Ab'},
+     
+    {'mutations': [['1dqj', 'A', [49], ['ALA'], ['C']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '3.9E6'], 'Ka'],
+  'Ab_Ag':'Ab'},
+     
+   {'mutations': [['1dqj', 'A', [90], ['ALA'], ['C']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '3.2E7'], 'Ka'],
+  'Ab_Ag':'Ab'},
+    
+       {'mutations': [['1dqj', 'A', [95], ['ALA'], ['C']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '5.3E7'], 'Ka'],
+  'Ab_Ag':'Ab'},
+        
+    {'mutations': [['1dqj', 'B', [31], ['ALA'], ['C']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '1.2E7'], 'Ka'],
+  'Ab_Ag':'Ab'},
+     
+     {'mutations': [['1dqj', 'B', [32], ['ALA'], ['C']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '3.2E4'], 'Ka'],
+  'Ab_Ag':'Ab'},
+          
+     {'mutations': [['1dqj', 'B', [49], ['ALA'], ['C']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '3.2E3'], 'Ka'],
+  'Ab_Ag':'Ab'},
+      
+    {'mutations': [['1dqj', 'B', [52], ['ALA'], ['C']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '4.9E7'], 'Ka'],
+  'Ab_Ag':'Ab'},
+     
+    {'mutations': [['1dqj', 'B', [97], ['ALA'], ['C']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '8.7E4'], 'Ka'],
+  'Ab_Ag':'Ab'},
+        ]
+
+mutations_mix = [
+            {'mutations': [['1dqj', 'A', [32], ['ALA'], ['C']],
+                           ['1dqj', 'C', [95], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '2E4'], 'Ka']},
+                           
+            {'mutations': [['1dqj', 'A', [90], ['ALA'], ['C']],
+                           ['1dqj', 'C', [20], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '1.7E6'], 'Ka']},
+                           
+            {'mutations': [['1dqj', 'A', [90], ['ALA'], ['C']],
+                           ['1dqj', 'C', [19], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '8.6E5'], 'Ka']},
+                           
+            {'mutations': [['1dqj', 'A', [95], ['ALA'], ['C']],
+                           ['1dqj', 'C', [20], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '1E6'], 'Ka']},
+                           
+           {'mutations': [['1dqj', 'A', [95], ['ALA'], ['C']],
+                           ['1dqj', 'C', [99], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '7.7E7'], 'Ka']},
+                         
+            {'mutations': [['1dqj', 'B', [31], ['ALA'], ['C']],
+                           ['1dqj', 'C', [96], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '5.4E7'], 'Ka']},
+        
+            {'mutations': [['1dqj', 'B', [52], ['ALA'], ['C']],
+                           ['1dqj', 'C', [61], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '4.1E7'], 'Ka']},
+       
+            {'mutations': [['1dqj', 'B', [52], ['ALA'], ['C']],
+                           ['1dqj', 'C', [62], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '8.8E6'], 'Ka']},
+                           
+            {'mutations': [['1dqj', 'B', [52], ['ALA'], ['C']],
+                           ['1dqj', 'C', [74], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '4.6E7'], 'Ka']},
+                           
+            {'mutations': [['1dqj', 'B', [52], ['ALA'], ['C']],
+                           ['1dqj', 'C', [100], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '3.6E6'], 'Ka']},
+                           
+            {'mutations': [['1dqj', 'B', [97], ['ALA'], ['C']],
+                           ['1dqj', 'C', [99], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '4.2E4'], 'Ka']},
+       
+            {'mutations': [['1dqj', 'B', [97], ['ALA'], ['C']],
+                           ['1dqj', 'C', [96], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '4.7E3'], 'Ka']},
+                           
+            {'mutations': [['1dqj', 'B', [97], ['ALA'], ['C']],
+                           ['1dqj', 'C', [19], ['ALA'], ['A', 'B']]],             
+  'affinities': [['1dqj', 'None'], ['3.6E8', '6E4'], 'Ka']},
+        ]
+
+len(other_mutations_Ab_Ag_fixed)
+len(mutations_mix)
+os.chdir('/home/leo/Documents/Database/Pipeline/Affinity/All_structures')
+with open('other_mutations_Ab_Ag_fixed', 'w') as f:
+    json.dump(other_mutations_Ab_Ag_fixed, f)
+with open('mutations_mix', 'w') as f:
+    json.dump(mutations_mix, f)
 with open('workable_dicts_Ab_fixed', 'w') as f:
     json.dump(workable_dicts_Ab_fixed, f)
-    
 with open('workable_dicts_Ag_fixed', 'w') as f:
     json.dump(workable_dicts_Ag_fixed, f)
 
+
+
+
+    
+    
